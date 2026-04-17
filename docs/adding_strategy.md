@@ -34,3 +34,23 @@ You can run it with:
 ```bash
 python hanabi.py my my --games 100
 ```
+
+
+## LLM strategy notes
+
+A starter LLM-backed strategy is available as `llm` and lives in `strategies/llm_strategy.py`.
+
+```bash
+python hanabi.py llm random --games 5
+```
+
+Runtime configuration:
+- `OPENAI_API_KEY` (required to call API)
+- `PYHANABI_OPENAI_MODEL` (optional, default `gpt-4.1-mini`)
+- `PYHANABI_OPENAI_TEMPERATURE` (optional, default `0`)
+
+Where to put your API key:
+- In your shell session before running: `export OPENAI_API_KEY="sk-..."`
+- Or in your shell profile (e.g. `~/.bashrc`) so it is available in new terminals.
+
+The implementation enforces legality by requiring the model to output a `selected_action_id` that indexes directly into the supplied `legal_actions` list, then validating every returned action field before constructing the engine `Action` object. If the model does not return a legal action, the strategy now raises a clear error message instead of silently falling back.

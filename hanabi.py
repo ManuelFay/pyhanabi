@@ -111,7 +111,6 @@ class Player(object):
         return self.explanation
 
 
-# Lazy compatibility shims for strategy classes previously defined in hanabi.py.
 class InnerStatePlayer(object):
     def __new__(cls, *args, **kwargs):
         from strategies.inner_strategy import InnerStatePlayer as Impl

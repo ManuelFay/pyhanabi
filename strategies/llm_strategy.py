@@ -1,0 +1,193 @@
+"""LLM-backed strategy implementation with strict legal-action protocol."""
+
+import json
+import os
+
+from .base import AbstractStrategy
+from hanabi import Action, HINT_COLOR, HINT_NUMBER, PLAY, DISCARD, COLORNAMES
+
+try:
+    from openai import OpenAI
+except ImportError:  # pragma: no cover - optional runtime dependency
+    OpenAI = None
+
+
+class LLMStrategy(AbstractStrategy):
+    """Use an LLM to choose among legal actions with strict validation."""
+
+    SYSTEM_PROMPT = (
+        "You are an expert Hanabi partner. Think carefully about expected team score, "
+        "risk management, card criticality, hint economy, and information timing. "
+        "You must choose exactly one candidate action from the provided legal action list. "
+        "Do not invent actions, card indices, players, colors, or numbers that are absent "
+        "from the legal actions. You may reason internally but your final output must be "
+        "strict JSON with this exact shape: "
+        "{\"selected_action_id\": <int>, \"selected_action\": {\"type\": <str>, "
+        "\"pnr\": <int|null>, \"col\": <int|null>, \"num\": <int|null>, "
+        "\"cnr\": <int|null>, \"canonical\": <str>}, \"reasoning\": <str>}"
+    )
+
+    def __init__(self, name, pnr, client=None):
+        self.name = name
+        self.pnr = pnr
+        self.explanation = []
+        self.model = os.getenv("PYHANABI_OPENAI_MODEL", "gpt-4.1-mini")
+        self.temperature = float(os.getenv("PYHANABI_OPENAI_TEMPERATURE", "0"))
+        if client is not None:
+            self.client = client
+        elif OpenAI and os.getenv("OPENAI_API_KEY"):
+            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        else:
+            self.client = None
+
+    def _action_type_name(self, action_type):
+        mapping = {
+            HINT_COLOR: "hint_color",
+            HINT_NUMBER: "hint_number",
+            PLAY: "play",
+            DISCARD: "discard",
+        }
+        return mapping[action_type]
+
+    def _canonical_action(self, action):
+        if action.type == HINT_COLOR:
+            return f"hint_color(player={action.pnr}, color={COLORNAMES[action.col]})"
+        if action.type == HINT_NUMBER:
+            return f"hint_number(player={action.pnr}, number={action.num})"
+        if action.type == PLAY:
+            return f"play(card_index={action.cnr})"
+        return f"discard(card_index={action.cnr})"
+
+    def _serialize_action(self, action_id, action):
+        return {
+            "action_id": action_id,
+            "type": self._action_type_name(action.type),
+            "pnr": action.pnr,
+            "col": action.col,
+            "num": action.num,
+            "cnr": action.cnr,
+            "canonical": self._canonical_action(action),
+        }
+
+    def _serialize_state(self, nr, hands, knowledge, trash, played, board, hints, legal_actions):
+        board_state = {
+            COLORNAMES[col]: rank
+            for (col, rank) in board
+        }
+        return {
+            "current_player": nr,
+            "hints": hints,
+            "visible_hands": hands,
+            "knowledge": knowledge,
+            "trash": trash,
+            "played": played,
+            "board": board_state,
+            "legal_actions": legal_actions,
+        }
+
+    def _build_user_prompt(self, state_payload):
+        protocol = {
+            "protocol_name": "legal-action-id-v1",
+            "rules": [
+                "You must return one and only one legal action.",
+                "selected_action_id must be exactly one action_id from legal_actions.",
+                "selected_action must exactly match that legal action (type/pnr/col/num/cnr/canonical).",
+                "If uncertain, still choose a legal action_id from the list.",
+                "Output strict JSON only; no markdown fences and no extra keys.",
+            ],
+        }
+        payload = {
+            "protocol": protocol,
+            "state": state_payload,
+        }
+        return json.dumps(payload, separators=(",", ":"))
+
+    def _extract_json(self, content):
+        raw = content.strip()
+        if raw.startswith("```"):
+            lines = [line for line in raw.splitlines() if not line.strip().startswith("```")]
+            raw = "\n".join(lines).strip()
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError("No JSON object found in LLM response")
+        return json.loads(raw[start:end + 1])
+
+    def _to_action(self, candidate):
+        action_type = {
+            "hint_color": HINT_COLOR,
+            "hint_number": HINT_NUMBER,
+            "play": PLAY,
+            "discard": DISCARD,
+        }[candidate["type"]]
+        return Action(
+            action_type,
+            pnr=candidate.get("pnr"),
+            col=candidate.get("col"),
+            num=candidate.get("num"),
+            cnr=candidate.get("cnr"),
+        )
+
+    def _llm_pick_action(self, state_payload, legal_actions):
+        if not self.client:
+            raise RuntimeError(
+                "LLMStrategy cannot call OpenAI: configure OPENAI_API_KEY and install openai package."
+            )
+        if not os.getenv("OPENAI_API_KEY"):
+            raise RuntimeError("OPENAI_API_KEY is not set.")
+
+        response = self.client.responses.create(
+            model=self.model,
+            temperature=self.temperature,
+            input=[
+                {"role": "system", "content": self.SYSTEM_PROMPT},
+                {"role": "user", "content": self._build_user_prompt(state_payload)},
+            ],
+        )
+        parsed = self._extract_json(response.output_text)
+
+        selected_id = parsed.get("selected_action_id")
+        if not isinstance(selected_id, int):
+            raise ValueError("LLM protocol error: selected_action_id must be an integer legal action id.")
+        if selected_id < 0 or selected_id >= len(legal_actions):
+            raise ValueError(f"LLM protocol error: selected_action_id={selected_id} is not a legal action.")
+
+        candidate = legal_actions[selected_id]
+        selected_action = parsed.get("selected_action")
+        if not isinstance(selected_action, dict):
+            raise ValueError("LLM protocol error: selected_action must be an object.")
+
+        required_keys = ["type", "pnr", "col", "num", "cnr", "canonical"]
+        for key in required_keys:
+            if key not in selected_action:
+                raise ValueError(f"LLM protocol error: selected_action missing key: {key}")
+
+        for key in required_keys:
+            if selected_action[key] != candidate[key]:
+                raise ValueError(
+                    "LLM protocol error: selected_action does not match legal action "
+                    f"for key '{key}' (expected {candidate[key]!r}, got {selected_action[key]!r})."
+                )
+
+        reason = parsed.get("reasoning", "")
+        return self._to_action(candidate), reason
+
+    def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
+        legal_actions = [self._serialize_action(i, action) for i, action in enumerate(valid_actions)]
+        state_payload = self._serialize_state(
+            nr=nr,
+            hands=hands,
+            knowledge=knowledge,
+            trash=trash,
+            played=played,
+            board=board,
+            hints=hints,
+            legal_actions=legal_actions,
+        )
+
+        action, reasoning = self._llm_pick_action(state_payload, legal_actions)
+        self.explanation = [f"LLM model={self.model}", reasoning]
+        return action
+
+    def inform(self, action, player, game):
+        pass
