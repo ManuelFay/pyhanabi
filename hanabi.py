@@ -163,6 +163,12 @@ class FastLLMStrategy(object):
     def __new__(cls, *args, **kwargs):
         from strategies.fast_llm_strategy import FastLLMStrategy as Impl
         return Impl(*args, **kwargs)
+
+
+class FeedbackLLMStrategy(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.feedback_llm_strategy import FeedbackLLMStrategy as Impl
+        return Impl(*args, **kwargs)
 def get_possible(knowledge):
     result = []
     for col in ALL_COLORS:

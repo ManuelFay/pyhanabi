@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
 from hanabi import Action, PLAY, DISCARD
 from strategies.llm_strategy import LLMStrategy
 from strategies.fast_llm_strategy import FastLLMStrategy
+from strategies.feedback_llm_strategy import FeedbackLLMStrategy
 
 
 class _FakeResponse:
@@ -219,3 +220,28 @@ def test_fast_llm_strategy_uses_compact_state():
     assert "board" in state
     assert "own_knowledge_summary" in state
     assert "recent_discarded_cards" in state
+
+
+def test_feedback_llm_strategy_has_rule_labels():
+    strategy = FeedbackLLMStrategy(
+        "Feedback",
+        0,
+        client=_FakeClient(
+            '{"selected_action_id":0,"selected_action":{"type":"play","pnr":null,"col":null,"num":null,"cnr":0,"canonical":"play(card_index=0)"},"reasoning":"x"}'
+        ),
+    )
+    legal_actions = [{"action_id": 0, "type": "play", "pnr": None, "col": None, "num": None, "cnr": 0, "canonical": "play(card_index=0)"}]
+    state = strategy._serialize_state(
+        nr=0,
+        hands=[[], [(0, 1), (3, 2)]],
+        knowledge=[[[[1, 0, 0, 0, 0] for _ in range(5)]], [[[1, 0, 0, 0, 0] for _ in range(5)]]],
+        trash=[(1, 3)],
+        played=[(0, 1)],
+        board=[(0, 1), (1, 0), (2, 0), (3, 0), (4, 0)],
+        hints=6,
+        legal_actions=legal_actions,
+    )
+    assert "own_cards" in state
+    assert "labels" in state["own_cards"][0]
+    assert "legal_actions" in state
+    assert "touched_cards" in state["legal_actions"][0]

@@ -77,3 +77,5 @@ With `--show-reasoning`, CLI logs now include parseable per-move state lines:
 
 
 `fast-llm` is a compact-state variant of `llm` that sends a smaller, high-signal state payload (trimmed knowledge + short history) to reduce cost/latency.
+
+`feedback-llm` extends the compact approach with explicit deterministic card/action labels (certain-play, safe-discard, critical, clue touched cards) and a stricter policy-guided prompt.
