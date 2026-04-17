@@ -1,4 +1,4 @@
-"""IntentionalPlayer strategy implementation."""
+"""FullyIntentionalPlayer strategy implementation."""
 
 import random
 import time
@@ -7,8 +7,8 @@ import copy
 from .base import AbstractStrategy
 from hanabi import *
 
-class IntentionalPlayer(AbstractStrategy):
-    """Intentional hinting strategy."""
+class FullyIntentionalPlayer(AbstractStrategy):
+    """Fully intentional strategy variant."""
     def __init__(self, name, pnr):
         self.name = name
         self.hints = {}
@@ -17,28 +17,23 @@ class IntentionalPlayer(AbstractStrategy):
         self.last_knowledge = []
         self.last_played = []
         self.last_board = []
-        self.explanation = []
     def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
         handsize = len(knowledge[0])
         possible = []
-        result = None
-        self.explanation = []
-        self.explanation.append(["Your Hand:"] + list(map(f, hands[1-nr])))
+        
         
         self.gothint = None
         for k in knowledge[nr]:
             possible.append(get_possible(k))
         
         discards = []
+        plays = []
         duplicates = []
         for i,p in enumerate(possible):
             if playable(p,board):
-                result = Action(PLAY, cnr=i)
+                plays.append(i)
             if discardable(p,board):
                 discards.append(i)
-
-        if discards and hints < 8 and not result:
-            result =  Action(DISCARD, cnr=random.choice(discards))
             
         playables = []
         useless = []
@@ -51,7 +46,7 @@ class IntentionalPlayer(AbstractStrategy):
                     if board[col][1] + 1 == n:
                         playables.append((i,j))
                         intentions[j] = PLAY
-                    if board[col][1] >= n:
+                    if board[col][1] <= n:
                         useless.append((i,j))
                         if not intentions[j]:
                             intentions[j] = DISCARD
@@ -60,17 +55,14 @@ class IntentionalPlayer(AbstractStrategy):
                         if not intentions[j]:
                             intentions[j] = CANDISCARD
         
-        self.explanation.append(["Intentions"] + list(map(format_intention, intentions)))
         
-        
-            
+
         if hints > 0:
             valid = []
             for c in ALL_COLORS:
                 action = (HINT_COLOR, c)
                 #print "HINT", COLORNAMES[c],
-                (isvalid,score,expl) = pretend(action, knowledge[1-nr], intentions, hands[1-nr], board)
-                self.explanation.append(["Prediction for: Hint Color " + COLORNAMES[c]] + list(map(format_intention, expl)))
+                (isvalid,score) = pretend(action, knowledge[1-nr], intentions, hands[1-nr], board)
                 #print isvalid, score
                 if isvalid:
                     valid.append((action,score))
@@ -79,36 +71,40 @@ class IntentionalPlayer(AbstractStrategy):
                 r += 1
                 action = (HINT_NUMBER, r)
                 #print "HINT", r,
-                
-                (isvalid,score, expl) = pretend(action, knowledge[1-nr], intentions, hands[1-nr], board)
-                self.explanation.append(["Prediction for: Hint Rank " + str(r)] + list(map(format_intention, expl)))
+                (isvalid,score) = pretend(action, knowledge[1-nr], intentions, hands[1-nr], board)
                 #print isvalid, score
                 if isvalid:
                     valid.append((action,score))
-                 
-            if valid and not result:
-                valid.sort(key=lambda a_s: -a_s[1])
+            if valid:
+                valid.sort(key=lambda a_s6: -a_s6[1])
                 #print valid
                 (a,s) = valid[0]
                 if a[0] == HINT_COLOR:
-                    result = Action(HINT_COLOR, pnr=1-nr, col=a[1])
+                    return Action(HINT_COLOR, pnr=1-nr, col=a[1])
                 else:
-                    result = Action(HINT_NUMBER, pnr=1-nr, num=a[1])
-
-        self.explanation.append(["My Knowledge"] + list(map(format_knowledge, knowledge[nr])))
-        possible = [ Action(DISCARD, cnr=i) for i in range(handsize) ]
-        
-        scores = [pretend_discard(p, knowledge[nr], board, trash) for p in possible]
-        def format_term(xxx_todo_changeme):
-            (col,rank,n,prob,val) = xxx_todo_changeme
-            return COLORNAMES[col] + " " + str(rank) + " (%.2f%%): %.2f"%(prob*100, val)
+                    return Action(HINT_NUMBER, pnr=1-nr, num=a[1])
             
-        self.explanation.append(["Discard Scores"] + ["\n".join(map(format_term, a_s_t[2])) + "\n%.2f"%(a_s_t[1]) for a_s_t in scores])
-        scores.sort(key=lambda a_s_t10: -a_s_t10[1])
-        if result:
-            return result
-        return scores[0][0]
         
+        for i, k in enumerate(knowledge):
+            if i == nr or True:
+                continue
+            cards = list(range(len(k)))
+            random.shuffle(cards)
+            c = cards[0]
+            (col,num) = hands[i][c]            
+            hinttype = [HINT_COLOR, HINT_NUMBER]
+            if (c,i) not in self.hints:
+                self.hints[(c,i)] = []
+            for h in self.hints[(c,i)]:
+                hinttype.remove(h)
+            if hinttype and hints > 0:
+                if random.choice(hinttype) == HINT_COLOR:
+                    self.hints[(c,i)].append(HINT_COLOR)
+                    return Action(HINT_COLOR, pnr=i, col=col)
+                else:
+                    self.hints[(c,i)].append(HINT_NUMBER)
+                    return Action(HINT_NUMBER, pnr=i, num=num)
+
         return random.choice([Action(DISCARD, cnr=i) for i in range(handsize)])
     def inform(self, action, player, game):
         if action.type in [PLAY, DISCARD]:
@@ -125,6 +121,4 @@ class IntentionalPlayer(AbstractStrategy):
             self.last_board = game.board[:]
             self.last_trash = game.trash[:]
             self.played = game.played[:]
-            
-            
-            
+        

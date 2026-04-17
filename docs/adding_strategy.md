@@ -5,7 +5,7 @@ Strategies now live in the dedicated `strategies/` package with **one strategy p
 ## Required pieces
 
 1. Create a new file in `strategies/`, e.g. `strategies/my_strategy.py`.
-2. In that file, define a strategy class that inherits from `AbstractStrategy` (or `LegacyAdapterStrategy`).
+2. In that file, define a strategy class that inherits from `AbstractStrategy`.
 3. Implement `get_action(...)` at minimum. Optionally implement `inform(...)` and `get_explanation(...)`.
 4. Register the class in `strategies/__init__.py` by adding it to `STRATEGY_TYPES`.
 

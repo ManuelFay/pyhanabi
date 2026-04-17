@@ -1,11 +1,21 @@
-"""Random strategy adapter."""
+"""Player strategy implementation."""
 
-from .base import LegacyAdapterStrategy
+import random
+import time
+import copy
 
+from .base import AbstractStrategy
+from hanabi import *
 
-class RandomStrategy(LegacyAdapterStrategy):
-    """Baseline random strategy that samples from valid actions."""
-
-    # Delegates to the legacy `Player` implementation in `hanabi.py`.
-    legacy_name = "Player"
-
+class Player(AbstractStrategy):
+    """Random baseline strategy."""
+    def __init__(self, name, pnr):
+        self.name = name
+        self.explanation = []
+    def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
+        return random.choice(valid_actions)
+    def inform(self, action, player, game):
+        pass
+    def get_explanation(self):
+        return self.explanation
+        

@@ -1,47 +1,69 @@
-"""Abstract strategy contract used by all strategy adapters."""
+"""Abstract strategy contract and shared helpers."""
 
 from abc import ABC, abstractmethod
-import importlib
+import copy
 
 
 class AbstractStrategy(ABC):
-    """Strategy interface expected by the Hanabi game loop."""
+    """Base strategy class used by all concrete strategy implementations."""
 
     def __init__(self, name, pnr):
         self.name = name
         self.pnr = pnr
+        self.explanation = []
 
     @abstractmethod
     def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
-        """Return the next action for the current game state."""
+        """Return a legal action for the active player index `nr`."""
 
     def inform(self, action, player, game):
-        """Receive post-action updates from the game engine."""
+        """Receive transition updates from the engine (optional override)."""
 
     def get_explanation(self):
-        """Return explanation traces, if the strategy supports them."""
-        return []
+        """Return explanation traces for the latest decision(s)."""
+        return self.explanation
 
+    @staticmethod
+    def get_possible(knowledge, all_colors):
+        result = []
+        for col in all_colors:
+            for i, cnt in enumerate(knowledge[col]):
+                if cnt > 0:
+                    result.append((col, i + 1))
+        return result
 
-class LegacyAdapterStrategy(AbstractStrategy):
-    """Adapter around legacy strategy implementations in `hanabi.py`."""
+    @staticmethod
+    def playable(possible, board):
+        for (col, nr) in possible:
+            if board[col][1] + 1 != nr:
+                return False
+        return True
 
-    legacy_name = None
+    @staticmethod
+    def potentially_playable(possible, board):
+        for (col, nr) in possible:
+            if board[col][1] + 1 == nr:
+                return True
+        return False
 
-    def __init__(self, name, pnr):
-        super().__init__(name, pnr)
-        if self.legacy_name is None:
-            raise ValueError("legacy_name must be set on adapter strategy")
-        # Lazy import prevents circular imports while preserving legacy behavior.
-        hanabi_mod = importlib.import_module("hanabi")
-        legacy_cls = getattr(hanabi_mod, self.legacy_name)
-        self._impl = legacy_cls(name, pnr)
+    @staticmethod
+    def discardable(possible, board):
+        for (col, nr) in possible:
+            if board[col][1] < nr:
+                return False
+        return True
 
-    def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
-        return self._impl.get_action(nr, hands, knowledge, trash, played, board, valid_actions, hints)
+    @staticmethod
+    def potentially_discardable(possible, board):
+        for (col, nr) in possible:
+            if board[col][1] >= nr:
+                return True
+        return False
 
-    def inform(self, action, player, game):
-        return self._impl.inform(action, player, game)
-
-    def get_explanation(self):
-        return self._impl.get_explanation()
+    @staticmethod
+    def update_knowledge(knowledge, used):
+        result = copy.deepcopy(knowledge)
+        for r in result:
+            for (c, nr) in used:
+                r[c][nr - 1] = max(r[c][nr - 1] - used[c, nr], 0)
+        return result

@@ -1,22 +1,23 @@
-"""Strategy package with one strategy per module."""
+"""Strategy package with one strategy implementation per module."""
 
-from .full_strategy import FullStrategy
-from .inner_strategy import InnerStrategy
-from .intentional_strategy import IntentionalStrategy
-from .outer_strategy import OuterStrategy
-from .random_strategy import RandomStrategy
-from .sample_strategy import SampleStrategy
-from .self_strategy import SelfStrategy
-from .timed_strategy import TimedStrategy
+from .full_strategy import SelfIntentionalPlayer
+from .fully_intentional_strategy import FullyIntentionalPlayer
+from .inner_strategy import InnerStatePlayer
+from .intentional_strategy import IntentionalPlayer
+from .outer_strategy import OuterStatePlayer
+from .random_strategy import Player
+from .sample_strategy import SamplingRecognitionPlayer
+from .self_strategy import SelfRecognitionPlayer
+from .timed_strategy import TimedPlayer
 
 
 STRATEGY_TYPES = {
-    "random": RandomStrategy,
-    "inner": InnerStrategy,
-    "outer": OuterStrategy,
-    "self": SelfStrategy,
-    "intentional": IntentionalStrategy,
-    "sample": SampleStrategy,
-    "full": FullStrategy,
-    "timed": TimedStrategy,
+    "random": Player,
+    "inner": InnerStatePlayer,
+    "outer": OuterStatePlayer,
+    "self": SelfRecognitionPlayer,
+    "intentional": IntentionalPlayer,
+    "sample": SamplingRecognitionPlayer,
+    "full": SelfIntentionalPlayer,
+    "timed": TimedPlayer,
 }

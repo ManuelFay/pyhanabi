@@ -113,7 +113,7 @@ def main():
     if args.games < 1:
         raise ValueError("--games must be >= 1")
 
-    available = set(hanabi.playertypes.keys())
+    available = set(hanabi.get_playertypes().keys())
     unknown = [s for s in args.strategies if s not in available]
     if unknown:
         raise ValueError(
