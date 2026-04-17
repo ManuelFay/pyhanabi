@@ -177,9 +177,30 @@ Most strategies balance three core goals:
 
 ---
 
+
+## `prior` (`PrioritizedIntentionalPlayer`)
+
+**Rationale:** Fast deterministic priors: immediate value now, risk control otherwise.
+
+**What it considers:**
+- full turn snapshot from `inform(...)` (current true hand state),
+- direct card playability on current board,
+- discard criticality (protect last-copy cards),
+- hint specificity (prefer hints that isolate a playable target).
+
+**Decision style:**
+1. **Play-first prior:** play any guaranteed playable own card, preferring the highest rank.
+2. **Tempo-hint prior:** if no play, hint teammate about currently playable cards; prefer narrower hints that touch fewer cards.
+3. **Safety-discard prior:** if still no play/hint, discard the lowest-cost card (dead cards first, avoid critical cards).
+4. **Robust fallback:** if no snapshot state is available, fall back to knowledge-based safe play/discard logic.
+
+**Tradeoff:** Extremely fast and strong in mirror mode; weaker in mixed pairings where partners follow different hint conventions.
+
+---
+
 ## Practical guidance
 
-- For **fast baselines**: use `random`, `inner`, `outer`.
+- For **fast baselines**: use `random`, `inner`, `outer`, `prior`.
 - For **communication-heavy experiments**: use `intentional`, `full`, `sample`.
 - For **protocol/timing experiments**: use `timed`.
 - For **deep recursive behavior**: use `self` (expect longer runtimes).
