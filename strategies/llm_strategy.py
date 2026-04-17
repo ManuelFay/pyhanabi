@@ -29,8 +29,9 @@ class LLMStrategy(AbstractStrategy):
         self.name = name
         self.pnr = pnr
         self.explanation = []
-        self.model = os.getenv("PYHANABI_OPENAI_MODEL", "o4-mini")
+        self.model = os.getenv("PYHANABI_OPENAI_MODEL", "gpt-5.4")
         self.temperature = float(os.getenv("PYHANABI_OPENAI_TEMPERATURE", "0"))
+        self.reasoning_effort = os.getenv("PYHANABI_OPENAI_REASONING_EFFORT", "low")
         self.log_path = Path(os.getenv("PYHANABI_LLM_LOG_PATH", str(self.DEFAULT_LOG_PATH)))
         if client is not None:
             self.client = client
@@ -160,6 +161,7 @@ class LLMStrategy(AbstractStrategy):
         request_payload = {
             "model": self.model,
             "temperature": self.temperature,
+            "reasoning": {"effort": self.reasoning_effort},
             "input": [
                 {"role": "system", "content": self.SYSTEM_PROMPT},
                 {"role": "user", "content": self._build_user_prompt(state_payload)},
@@ -168,6 +170,7 @@ class LLMStrategy(AbstractStrategy):
         response = self.client.responses.create(
             model=self.model,
             temperature=self.temperature,
+            reasoning=request_payload["reasoning"],
             input=request_payload["input"],
         )
         response_text = response.output_text

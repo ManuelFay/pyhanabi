@@ -118,5 +118,6 @@ def test_llm_strategy_logs_request_and_response(tmp_path):
     assert len(lines) == 1
     entry = json.loads(lines[0])
     assert entry["request"]["model"] == strategy.model
+    assert entry["request"]["reasoning"]["effort"] == "low"
     assert "selected_action_id" in entry["response_text"]
     assert entry["error"] is None
