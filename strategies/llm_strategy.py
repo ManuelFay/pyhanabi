@@ -2,6 +2,7 @@
 
 import json
 import os
+from pathlib import Path
 
 from .base import AbstractStrategy
 from hanabi import Action, HINT_COLOR, HINT_NUMBER, PLAY, DISCARD, COLORNAMES
@@ -15,16 +16,11 @@ except ImportError:  # pragma: no cover - optional runtime dependency
 class LLMStrategy(AbstractStrategy):
     """Use an LLM to choose among legal actions with strict validation."""
 
+    CONTEXT_PATH = Path(__file__).resolve().parents[1] / "docs" / "llm_hanabi_context.md"
+
     SYSTEM_PROMPT = (
-        "You are an expert Hanabi partner. Think carefully about expected team score, "
-        "risk management, card criticality, hint economy, and information timing. "
-        "You must choose exactly one candidate action from the provided legal action list. "
-        "Do not invent actions, card indices, players, colors, or numbers that are absent "
-        "from the legal actions. You may reason internally but your final output must be "
-        "strict JSON with this exact shape: "
-        "{\"selected_action_id\": <int>, \"selected_action\": {\"type\": <str>, "
-        "\"pnr\": <int|null>, \"col\": <int|null>, \"num\": <int|null>, "
-        "\"cnr\": <int|null>, \"canonical\": <str>}, \"reasoning\": <str>}"
+        "You are an expert Hanabi partner. Read the context pack carefully and then choose "
+        "exactly one legal action. You must return strict JSON only with the required schema."
     )
 
     def __init__(self, name, pnr, client=None):
@@ -85,6 +81,11 @@ class LLMStrategy(AbstractStrategy):
             "legal_actions": legal_actions,
         }
 
+    def _load_context_markdown(self):
+        if not self.CONTEXT_PATH.exists():
+            raise RuntimeError(f"Missing LLM context file: {self.CONTEXT_PATH}")
+        return self.CONTEXT_PATH.read_text(encoding="utf-8")
+
     def _build_user_prompt(self, state_payload):
         protocol = {
             "protocol_name": "legal-action-id-v1",
@@ -97,6 +98,7 @@ class LLMStrategy(AbstractStrategy):
             ],
         }
         payload = {
+            "context_pack_markdown": self._load_context_markdown(),
             "protocol": protocol,
             "state": state_payload,
         }

@@ -75,3 +75,14 @@ def test_llm_strategy_raises_on_illegal_action_id():
             valid_actions=valid_actions,
             hints=8,
         )
+
+
+def test_llm_strategy_includes_context_pack_in_prompt(tmp_path):
+    payload = '{"selected_action_id":0,"selected_action":{"type":"play","pnr":null,"col":null,"num":null,"cnr":0,"canonical":"play(card_index=0)"},"reasoning":"play"}'
+    strategy = _make_strategy(payload)
+    context_file = tmp_path / "llm_hanabi_context.md"
+    context_file.write_text("# TEST CONTEXT", encoding="utf-8")
+    strategy.CONTEXT_PATH = context_file
+
+    prompt = strategy._build_user_prompt({"legal_actions": []})
+    assert "TEST CONTEXT" in prompt
