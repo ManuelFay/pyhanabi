@@ -89,6 +89,29 @@ def test_llm_strategy_includes_context_pack_in_prompt(tmp_path):
     assert "TEST CONTEXT" in prompt
 
 
+def test_llm_state_dump_includes_adapted_summaries(tmp_path):
+    payload = '{"selected_action_id":0,"selected_action":{"type":"play","pnr":null,"col":null,"num":null,"cnr":0,"canonical":"play(card_index=0)"},"reasoning":"play"}'
+    strategy = _make_strategy(payload)
+    context_file = tmp_path / "llm_hanabi_context.md"
+    context_file.write_text("# TEST CONTEXT", encoding="utf-8")
+    strategy.CONTEXT_PATH = context_file
+
+    state = strategy._serialize_state(
+        nr=0,
+        hands=[[], [(0, 1), (4, 2)]],
+        knowledge=[[[[1, 0, 0, 0, 0] for _ in range(5)]], [[[1, 0, 0, 0, 0] for _ in range(5)]]],
+        trash=[],
+        played=[],
+        board=[(0, 1), (1, 0), (2, 0), (3, 2), (4, 0)],
+        hints=7,
+        legal_actions=[{"action_id": 0, "type": "play"}],
+    )
+    assert "board_summary" in state
+    assert "visible_hands_summary" in state
+    assert "own_knowledge_summary" in state
+    assert state["board_summary"]["next_playable_rank_by_color"]["green"] == 2
+
+
 def test_llm_strategy_logs_request_and_response(tmp_path):
     payload = (
         '{"selected_action_id":0,"selected_action":{"type":"play","pnr":null,"col":null,'

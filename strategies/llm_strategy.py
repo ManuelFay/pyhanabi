@@ -69,13 +69,68 @@ class LLMStrategy(AbstractStrategy):
         }
 
     def _serialize_state(self, nr, hands, knowledge, trash, played, board, hints, legal_actions):
+        def summarize_visible_hands():
+            result = []
+            for pnr, hand in enumerate(hands):
+                if pnr == nr:
+                    result.append({"player": pnr, "cards": "hidden_to_current_player"})
+                    continue
+                cards = []
+                for card_idx, (col, rank) in enumerate(hand):
+                    cards.append(
+                        {
+                            "card_index": card_idx,
+                            "color_index": col,
+                            "color_name": COLORNAMES[col],
+                            "rank": rank,
+                        }
+                    )
+                result.append({"player": pnr, "cards": cards})
+            return result
+
+        def summarize_own_knowledge():
+            result = []
+            for card_idx, card_knowledge in enumerate(knowledge[nr]):
+                candidates = []
+                total = sum([sum(col_counts) for col_counts in card_knowledge]) or 1
+                for col in range(len(card_knowledge)):
+                    for rank_idx, count in enumerate(card_knowledge[col]):
+                        if count > 0:
+                            candidates.append(
+                                {
+                                    "color_index": col,
+                                    "color_name": COLORNAMES[col],
+                                    "rank": rank_idx + 1,
+                                    "weight": count,
+                                    "approx_probability": round(count / float(total), 4),
+                                }
+                            )
+                candidates.sort(key=lambda x: (-x["weight"], x["color_index"], x["rank"]))
+                result.append(
+                    {
+                        "card_index": card_idx,
+                        "candidate_count": len(candidates),
+                        "top_candidates": candidates[:8],
+                    }
+                )
+            return result
+
         board_state = {
             COLORNAMES[col]: rank
             for (col, rank) in board
         }
+        next_playable = {color_name: rank + 1 for color_name, rank in board_state.items()}
+        safely_discardable_upto = {color_name: rank for color_name, rank in board_state.items()}
         return {
             "current_player": nr,
             "hints": hints,
+            "board_summary": {
+                "current_stacks": board_state,
+                "next_playable_rank_by_color": next_playable,
+                "safely_discardable_ranks_upto_by_color": safely_discardable_upto,
+            },
+            "visible_hands_summary": summarize_visible_hands(),
+            "own_knowledge_summary": summarize_own_knowledge(),
             "visible_hands": hands,
             "knowledge": knowledge,
             "trash": trash,

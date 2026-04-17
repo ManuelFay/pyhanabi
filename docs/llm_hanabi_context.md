@@ -63,6 +63,12 @@ The LLM strategy serializes a JSON payload containing a `state` object with the 
 ### Top-level state keys
 - `current_player` (`int`): index of acting player.
 - `hints` (`int`): current hint tokens.
+- `board_summary` (`object`): derived board features for easier reasoning:
+  - `current_stacks`
+  - `next_playable_rank_by_color`
+  - `safely_discardable_ranks_upto_by_color`
+- `visible_hands_summary` (`list`): human-readable visible hand summary with `color_name` + rank.
+- `own_knowledge_summary` (`list`): per-card compact belief summary with top candidate identities and approximate probabilities.
 - `visible_hands` (`list`): hands as seen by acting player.
   - Acting player's own entry is typically `[]`.
   - Other players' entries are lists of cards encoded as `[color_index, rank]`.
@@ -86,6 +92,8 @@ Cards are represented as `[color_index, rank]`, where rank is `1..5`.
 ### Knowledge encoding (high level)
 For each unknown card, `knowledge` contains counts over possible identities by color and rank.
 A zero means impossible; positive means still possible.
+
+`own_knowledge_summary` is an adapted projection of this tensor to reduce prompt burden while preserving useful uncertainty structure.
 
 ---
 
