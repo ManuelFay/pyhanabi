@@ -96,6 +96,62 @@ class Action(object):
     def __eq__(self, other):
         return (self.type, self.pnr, self.col, self.num, self.cnr) == (other.type, other.pnr, other.col, other.num, other.cnr)
         
+
+
+# Backward-compatible base/player API used by httpui.py and legacy call sites.
+class Player(object):
+    def __init__(self, name, pnr):
+        self.name = name
+        self.explanation = []
+    def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
+        return random.choice(valid_actions)
+    def inform(self, action, player, game):
+        pass
+    def get_explanation(self):
+        return self.explanation
+
+
+# Lazy compatibility shims for strategy classes previously defined in hanabi.py.
+class InnerStatePlayer(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.inner_strategy import InnerStatePlayer as Impl
+        return Impl(*args, **kwargs)
+
+
+class OuterStatePlayer(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.outer_strategy import OuterStatePlayer as Impl
+        return Impl(*args, **kwargs)
+
+
+class SelfRecognitionPlayer(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.self_strategy import SelfRecognitionPlayer as Impl
+        return Impl(*args, **kwargs)
+
+
+class IntentionalPlayer(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.intentional_strategy import IntentionalPlayer as Impl
+        return Impl(*args, **kwargs)
+
+
+class SamplingRecognitionPlayer(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.sample_strategy import SamplingRecognitionPlayer as Impl
+        return Impl(*args, **kwargs)
+
+
+class SelfIntentionalPlayer(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.full_strategy import SelfIntentionalPlayer as Impl
+        return Impl(*args, **kwargs)
+
+
+class TimedPlayer(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.timed_strategy import TimedPlayer as Impl
+        return Impl(*args, **kwargs)
 def get_possible(knowledge):
     result = []
     for col in ALL_COLORS:
