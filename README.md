@@ -57,8 +57,13 @@ python -m pip install -r requirements.txt
 ### Core engine
 - `hanabi.py`
   - game rules, card/deck utilities, action model,
-  - base `Player` class and multiple AI subclasses,
+  - game loop/simulation entry point and strategy loading,
   - CLI entry point for repeated simulation runs.
+
+- `strategies/`
+  - one strategy per Python file,
+  - shared abstract strategy contract in `strategies/base.py`,
+  - strategy registry in `strategies/__init__.py`.
 
 ### Web server / UI
 - `httpui.py`
@@ -99,6 +104,9 @@ python hanabi.py intentional full --games 200
 python -m py_compile hanabi.py httpui.py tutorial.py consent.py serverconf.py
 python hanabi.py random random --games 5
 ```
+
+### Add a strategy
+See `docs/adding_strategy.md` for the step-by-step workflow and registry changes.
 
 ---
 

@@ -1435,7 +1435,9 @@ class NullStream(object):
         
 random.seed(123)
 
-playertypes = {"random": Player, "inner": InnerStatePlayer, "outer": OuterStatePlayer, "self": SelfRecognitionPlayer, "intentional": IntentionalPlayer, "sample": SamplingRecognitionPlayer, "full": SelfIntentionalPlayer, "timed": TimedPlayer}
+from strategies import STRATEGY_TYPES
+
+playertypes = STRATEGY_TYPES
 names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
         
         
