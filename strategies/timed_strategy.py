@@ -7,6 +7,27 @@ import copy
 from .base import AbstractStrategy
 from hanabi import *
 
+
+TIMESCALE = 40.0/1000.0 # ms
+SLICETIME = TIMESCALE / 10.0
+APPROXTIME = SLICETIME/8.0
+
+def priorities(c, board):
+    (col,val) = c
+    if board[col][1] == val-1:
+        return val - 1
+    if board[col][1] >= val:
+        return 5
+    if val == 5:
+        return 15
+    return 6 + (4 - val)
+
+SENT = 0
+ERRORS = 0
+COUNT = 0
+
+CAREFUL = True
+
 class TimedPlayer(AbstractStrategy):
     """Time-aware intentional strategy."""
     def __init__(self, name, pnr):
