@@ -5,6 +5,8 @@ import argparse
 from pathlib import Path
 import statistics
 import sys
+import threading
+import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -12,6 +14,7 @@ import hanabi
 
 # Keep this list to six broadly useful built-in strategies.
 DEFAULT_STRATEGIES = ["random", "inner", "outer", "self", "intentional", "full"]
+SPINNER_FRAMES = "|/-\\"
 
 
 def parse_args():
@@ -49,14 +52,50 @@ def render_progress(label, current, total, width=28):
     return f"\r{label:<12} [{bar}] {current:>3}/{total:<3} ({percent:>3}%)"
 
 
+def run_single_game(strategy, seed):
+    hanabi.random.seed(seed)
+    players = [hanabi.make_player(strategy, 0), hanabi.make_player(strategy, 1)]
+    game = hanabi.Game(players, hanabi.NullStream())
+    return game.run()
+
+
+def run_single_game_with_spinner(strategy, game_idx, games):
+    result = {"score": None, "error": None}
+
+    def worker():
+        try:
+            result["score"] = run_single_game(strategy, game_idx)
+        except Exception as exc:  # surfaced after join
+            result["error"] = exc
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
+    start_time = time.time()
+    frame = 0
+    while thread.is_alive():
+        elapsed = time.time() - start_time
+        spinner = SPINNER_FRAMES[frame % len(SPINNER_FRAMES)]
+        status = (
+            f"\r{strategy:<12} game {game_idx:>3}/{games:<3} {spinner} "
+            f"elapsed {elapsed:>5.1f}s"
+        )
+        sys.stdout.write(status)
+        sys.stdout.flush()
+        frame += 1
+        time.sleep(0.2)
+
+    thread.join()
+    if result["error"] is not None:
+        raise result["error"]
+
+    return result["score"]
+
+
 def run_same_strategy(strategy, games):
-    out = hanabi.NullStream()
     points = []
     for game_idx in range(1, games + 1):
-        hanabi.random.seed(game_idx)
-        players = [hanabi.make_player(strategy, 0), hanabi.make_player(strategy, 1)]
-        game = hanabi.Game(players, out)
-        points.append(game.run())
+        points.append(run_single_game_with_spinner(strategy, game_idx, games))
         sys.stdout.write(render_progress(strategy, game_idx, games))
         sys.stdout.flush()
     sys.stdout.write("\n")
@@ -85,6 +124,7 @@ def main():
     print("Running same-strategy AI-vs-AI experiments")
     print("Strategies:", ", ".join(args.strategies))
     print("Games per strategy:", args.games)
+    print("(Progress bar updates per completed game; spinner shows in-flight game activity.)")
     print()
 
     results = []
