@@ -84,6 +84,33 @@ python -m pip install -r requirements.txt
 
 ---
 
+
+## Strategy architecture (how it works now)
+
+- `hanabi.py` owns the game state, rule mechanics, and simulation loop.
+- `strategies/` owns strategy organization and registration:
+  - `strategies/base.py`
+    - `AbstractStrategy`: interface for strategy implementations.
+    - `LegacyAdapterStrategy`: compatibility adapter that delegates to legacy classes in `hanabi.py`.
+  - `strategies/<name>_strategy.py`: one strategy class per file.
+  - `strategies/__init__.py`: `STRATEGY_TYPES` mapping used by `hanabi.py`.
+- During player creation, `hanabi.py` resolves names (e.g. `random`, `outer`) through `STRATEGY_TYPES`.
+
+This gives a clean strategy extension point while preserving existing behavior.
+
+## Recommended next refactors
+
+1. **Complete extraction of legacy strategy logic**
+   - Move strategy internals out of `hanabi.py` into `strategies/` so adapters are no longer needed.
+2. **Modularize core engine**
+   - Split `hanabi.py` into `actions.py`, `rules.py`, `game.py`, and `cli.py`.
+3. **Add targeted tests**
+   - Add smoke tests for each registered strategy and unit tests for rule transitions.
+4. **Experiment harness improvements**
+   - Add config-driven benchmark runs (YAML/JSON) and structured output (CSV/JSON).
+
+---
+
 ## Typical workflows
 
 ### Play in browser
