@@ -29,7 +29,7 @@ class LLMStrategy(AbstractStrategy):
         self.name = name
         self.pnr = pnr
         self.explanation = []
-        self.model = os.getenv("PYHANABI_OPENAI_MODEL", "gpt-5.4")
+        self.model = os.getenv("PYHANABI_OPENAI_MODEL", "gpt-5.4-mini")
         self.reasoning_effort = os.getenv("PYHANABI_OPENAI_REASONING_EFFORT", "low")
         self.log_path = Path(os.getenv("PYHANABI_LLM_LOG_PATH", str(self.DEFAULT_LOG_PATH)))
         if client is not None:
