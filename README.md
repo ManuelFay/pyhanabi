@@ -57,8 +57,13 @@ python -m pip install -r requirements.txt
 ### Core engine
 - `hanabi.py`
   - game rules, card/deck utilities, action model,
-  - base `Player` class and multiple AI subclasses,
+  - game loop/simulation entry point and strategy loading,
   - CLI entry point for repeated simulation runs.
+
+- `strategies/`
+  - one strategy per Python file,
+  - shared abstract strategy contract in `strategies/base.py`,
+  - strategy registry in `strategies/__init__.py`.
 
 ### Web server / UI
 - `httpui.py`
@@ -76,6 +81,32 @@ python -m pip install -r requirements.txt
 - `requirements.txt` — runtime + test dependencies.
 - `CHANGELOG.md` — summary of modernization work.
 - `AGENTS.md` — maintainer notes for contributors/agents.
+
+---
+
+
+## Strategy architecture (how it works now)
+
+- `hanabi.py` owns the game state, rule mechanics, and simulation loop.
+- `strategies/` owns strategy organization and registration:
+  - `strategies/base.py`
+    - `AbstractStrategy`: interface + shared utility helpers for strategies.
+  - `strategies/<name>_strategy.py`: one full strategy implementation per file.
+  - `strategies/__init__.py`: `STRATEGY_TYPES` mapping used by `hanabi.py`.
+- During player creation, `hanabi.py` resolves names (e.g. `random`, `outer`) through `STRATEGY_TYPES`.
+
+This gives a clean strategy extension point with strategy logic fully outside `hanabi.py`.
+
+## Recommended next refactors
+
+1. **Modularize core engine**
+   - Split `hanabi.py` into `actions.py`, `rules.py`, `game.py`, and `cli.py`.
+2. **Add typed state/strategy contracts**
+   - Use dataclasses/Protocol types for actions, observations, and strategy interfaces.
+3. **Add targeted tests**
+   - Add smoke tests for each registered strategy and unit tests for rule transitions.
+4. **Experiment harness improvements**
+   - Add config-driven benchmark runs (YAML/JSON) and structured output (CSV/JSON).
 
 ---
 
@@ -99,6 +130,12 @@ python hanabi.py intentional full --games 200
 python -m py_compile hanabi.py httpui.py tutorial.py consent.py serverconf.py
 python hanabi.py random random --games 5
 ```
+
+### Add a strategy
+See `docs/adding_strategy.md` for the step-by-step workflow and registry changes.
+
+### Understand built-in strategy behavior
+See `docs/strategy_rationale.md` for a plain-language explanation of each strategy's decision logic and rationale.
 
 ---
 

@@ -1295,6 +1295,7 @@ if __name__ == '__main__':
     httpd = server_class((HOST_NAME, PORT_NUMBER), MyHandler)
     errlog.write(time.asctime() + " Server Starts - %s:%s\n" % (HOST_NAME, PORT_NUMBER))
     errlog.flush()
+    print("Open UI: http://%s:%s/" % (HOST_NAME, PORT_NUMBER))
     try:
        httpd.serve_forever()
     except KeyboardInterrupt:
