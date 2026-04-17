@@ -111,7 +111,6 @@ class Player(object):
         return self.explanation
 
 
-# Lazy compatibility shims for strategy classes previously defined in hanabi.py.
 class InnerStatePlayer(object):
     def __new__(cls, *args, **kwargs):
         from strategies.inner_strategy import InnerStatePlayer as Impl
@@ -151,6 +150,24 @@ class SelfIntentionalPlayer(object):
 class TimedPlayer(object):
     def __new__(cls, *args, **kwargs):
         from strategies.timed_strategy import TimedPlayer as Impl
+        return Impl(*args, **kwargs)
+
+
+class LLMStrategy(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.llm_strategy import LLMStrategy as Impl
+        return Impl(*args, **kwargs)
+
+
+class FastLLMStrategy(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.fast_llm_strategy import FastLLMStrategy as Impl
+        return Impl(*args, **kwargs)
+
+
+class FeedbackLLMStrategy(object):
+    def __new__(cls, *args, **kwargs):
+        from strategies.feedback_llm_strategy import FeedbackLLMStrategy as Impl
         return Impl(*args, **kwargs)
 def get_possible(knowledge):
     result = []
@@ -399,7 +416,7 @@ def format_hand(hand):
         
 
 class Game(object):
-    def __init__(self, players, log=sys.stdout, format=0):
+    def __init__(self, players, log=sys.stdout, format=0, show_reasoning=False):
         self.players = players
         self.hits = 3
         self.hints = 8
@@ -414,9 +431,15 @@ class Game(object):
         self.trash = []
         self.log = log
         self.turn = 1
+        self.move_index = 0
         self.format = format
+        self.show_reasoning = show_reasoning
         self.dopostsurvey = False
         self.study = False
+        self._end_notified = False
+        for p in self.players:
+            if hasattr(p, "start_game"):
+                p.start_game(self)
         if self.format:
             print(self.deck, file=self.log)
     def make_hands(self):
@@ -437,6 +460,7 @@ class Game(object):
         self.knowledge[pnr].append(initial_knowledge())
         del self.deck[0]
     def perform(self, action):
+        self.move_index += 1
         for p in self.players:
             p.inform(action, self.current_player, self)
         if format:
@@ -495,6 +519,15 @@ class Game(object):
             del self.knowledge[self.current_player][action.cnr]
             self.draw_card()
             print(self.players[self.current_player].name, "now has", format_hand(self.hands[self.current_player]), file=self.log)
+        if self.show_reasoning:
+            board_state = ", ".join([f"{COLORNAMES[col]}:{rank}" for (col, rank) in self.board])
+            points = self.score()
+            mistakes = 3 - self.hits
+            print(
+                f"STATE move={self.move_index} player={self.current_player} points={points} "
+                f"hints={self.hints} mistakes={mistakes} board=[{board_state}]",
+                file=self.log,
+            )
     def valid_actions(self):
         valid = []
         for i in range(len(self.hands[self.current_player])):
@@ -521,12 +554,22 @@ class Game(object):
                 else:
                     hands.append(h)
             action = self.players[self.current_player].get_action(self.current_player, hands, self.knowledge, self.trash, self.played, self.board, self.valid_actions(), self.hints)
+            if self.show_reasoning:
+                explanation = self.players[self.current_player].get_explanation()
+                if explanation:
+                    print(
+                        self.players[self.current_player].name,
+                        "reasoning:",
+                        " | ".join(map(str, explanation)),
+                        file=self.log,
+                    )
             self.perform(action)
             self.current_player += 1
             self.current_player %= len(self.players)
         print("Game done, hits left:", self.hits, file=self.log)
         points = self.score()
         print("Points:", points, file=self.log)
+        self._notify_game_end()
         return points
     def score(self):
         return sum([col_num8[1] for col_num8 in self.board])
@@ -541,6 +584,15 @@ class Game(object):
                 else:
                     hands.append(h)
             action = self.players[self.current_player].get_action(self.current_player, hands, self.knowledge, self.trash, self.played, self.board, self.valid_actions(), self.hints)
+            if self.show_reasoning:
+                explanation = self.players[self.current_player].get_explanation()
+                if explanation:
+                    print(
+                        self.players[self.current_player].name,
+                        "reasoning:",
+                        " | ".join(map(str, explanation)),
+                        file=self.log,
+                    )
             self.perform(action)
             self.current_player += 1
             self.current_player %= len(self.players)
@@ -562,6 +614,13 @@ class Game(object):
         if self.format:
             print("Score", self.score(), file=self.log)
             self.log.close()
+    def _notify_game_end(self):
+        if self._end_notified:
+            return
+        self._end_notified = True
+        for p in self.players:
+            if hasattr(p, "on_game_end"):
+                p.on_game_end(self)
         
     
 class NullStream(object):
@@ -572,7 +631,7 @@ class NullStream(object):
 random.seed(123)
 
 playertypes = None
-names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
+names = ["Bob", "Alice", "Charlie", "Dana", "Eve"]
         
         
 def get_playertypes():
@@ -637,6 +696,10 @@ def main(args):
         
     games = 200
     player_args = list(args)
+    show_reasoning = False
+    if "--show-reasoning" in player_args:
+        show_reasoning = True
+        player_args.remove("--show-reasoning")
     if "--games" in player_args:
         idx = player_args.index("--games")
         try:
@@ -658,7 +721,7 @@ def main(args):
         if (i+1)%100 == 0:
             print("Starting game", i+1)
         random.seed(i+1)
-        g = Game(players, out)
+        g = Game(players, out, show_reasoning=show_reasoning)
         try:
             pts.append(g.run())
             if (i+1)%100 == 0:

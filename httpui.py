@@ -493,7 +493,37 @@ def format_score(sc):
     
                 
 # AIClasses
-ais = {"random": hanabi.Player, "inner": hanabi.InnerStatePlayer, "outer": hanabi.OuterStatePlayer, "self": hanabi.SelfRecognitionPlayer, "intentional": hanabi.IntentionalPlayer, "full": hanabi.SelfIntentionalPlayer}
+ais = {
+    "random": hanabi.Player,
+    "inner": hanabi.InnerStatePlayer,
+    "outer": hanabi.OuterStatePlayer,
+    "self": hanabi.SelfRecognitionPlayer,
+    "intentional": hanabi.IntentionalPlayer,
+    "full": hanabi.SelfIntentionalPlayer,
+    "llm": hanabi.LLMStrategy,
+    "fast-llm": hanabi.FastLLMStrategy,
+    "feedback-llm": hanabi.FeedbackLLMStrategy,
+}
+
+
+def log_ai_reasoning(game, logstream):
+    if not game.players:
+        return
+    ai = game.players[0]
+    if not hasattr(ai, "get_explanation"):
+        return
+    explanation = ai.get_explanation()
+    if not explanation:
+        return
+    line = "AI reasoning: %s\n" % " | ".join([str(x) for x in explanation])
+    logstream.write(line)
+    logstream.flush()
+    if game.log and game.log is not logstream:
+        try:
+            game.log.write(line)
+            game.log.flush()
+        except Exception:
+            pass
 
 class MyHandler(http.server.BaseHTTPRequestHandler):
     def _write(s, data):
@@ -868,7 +898,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             
             s._write('<p>AI: ')
             
-            for i,(display,value) in enumerate([("Outer State AI", "outer"), ("Intentional AI", "intentional"), ("Full AI", "full")]):
+            for i,(display,value) in enumerate([("Outer State AI", "outer"), ("Intentional AI", "intentional"), ("Full AI", "full"), ("LLM AI", "llm"), ("Fast LLM AI", "fast-llm"), ("Feedback LLM AI", "feedback-llm")]):
                 s._write(' <a href="/selectreplay/%s">%s</a> - '%(format_filters(update_filters(filters, "ai", value)), display))
             s._write(' <a href="/selectreplay/%s">any</a></p>'%(format_filters(update_filters(filters, "ai", ""))))
             
@@ -964,6 +994,9 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             s._write('<li><a href="/new/self">Self Recognition</a></li>\n')
             s._write('<li><a href="/new/intentional">Intentional Player</a></li>\n')
             s._write('<li><a href="/new/full">Fully Intentional Player</a></li>\n')
+            s._write('<li><a href="/new/llm">LLM Player</a></li>\n')
+            s._write('<li><a href="/new/fast-llm">Fast LLM Player</a></li>\n')
+            s._write('<li><a href="/new/feedback-llm">Feedback LLM Player</a></li>\n')
             s._write('</ul><br/>')
             s._write('<p>Or select a <a href="/selectreplay/">replay file to view</a></p>')
             s._write('</body></html>')
@@ -975,6 +1008,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             
         if path.startswith("/start/"):
             game.single_turn()
+            log_ai_reasoning(game, errlog)
             game.started = True
             
         
@@ -1001,6 +1035,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
                 gameslock.release()
                 game.external_turn(action)
                 game.single_turn()
+                log_ai_reasoning(game, errlog)
             
                 
                 

@@ -3,6 +3,9 @@
 from .full_strategy import SelfIntentionalPlayer
 from .fully_intentional_strategy import FullyIntentionalPlayer
 from .inner_strategy import InnerStatePlayer
+from .fast_llm_strategy import FastLLMStrategy
+from .feedback_llm_strategy import FeedbackLLMStrategy
+from .llm_strategy import LLMStrategy
 from .intentional_strategy import IntentionalPlayer
 from .outer_strategy import OuterStatePlayer
 from .random_strategy import Player
@@ -20,4 +23,7 @@ STRATEGY_TYPES = {
     "sample": SamplingRecognitionPlayer,
     "full": SelfIntentionalPlayer,
     "timed": TimedPlayer,
+    "llm": LLMStrategy,
+    "fast-llm": FastLLMStrategy,
+    "feedback-llm": FeedbackLLMStrategy,
 }

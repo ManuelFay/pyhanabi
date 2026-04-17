@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import hanabi
 
 # Keep this list to six broadly useful built-in strategies.
-DEFAULT_STRATEGIES = ["random", "inner", "outer", "intentional", "full", "timed", "sample"]
+DEFAULT_STRATEGIES = ["random", "inner", "outer", "intentional", "full", "timed", "sample", "llm", "fast-llm", "feedback-llm"]
 SPINNER_FRAMES = "|/-\\"
 
 
@@ -39,6 +39,11 @@ def parse_args():
             + ", ".join(DEFAULT_STRATEGIES)
         ),
     )
+    parser.add_argument(
+        "--show-reasoning",
+        action="store_true",
+        help="Print per-turn strategy reasoning during each game run.",
+    )
     return parser.parse_args()
 
 
@@ -52,21 +57,25 @@ def render_progress(label, current, total, width=28):
     return f"\r{label:<12} [{bar}] {current:>3}/{total:<3} ({percent:>3}%)"
 
 
-def run_single_game(strategy, seed):
+def run_single_game(strategy, seed, show_reasoning=False):
     hanabi.random.seed(seed)
     players = [hanabi.make_player(strategy, 0), hanabi.make_player(strategy, 1)]
-    game = hanabi.Game(players, hanabi.NullStream())
+    stream = sys.stdout if show_reasoning else hanabi.NullStream()
+    game = hanabi.Game(players, stream, show_reasoning=show_reasoning)
     return game.run()
 
 
-def run_single_game_with_spinner(strategy, game_idx, games):
+def run_single_game_with_spinner(strategy, game_idx, games, show_reasoning=False):
     result = {"score": None, "error": None}
 
     def worker():
         try:
-            result["score"] = run_single_game(strategy, game_idx)
+            result["score"] = run_single_game(strategy, game_idx, show_reasoning=show_reasoning)
         except Exception as exc:  # surfaced after join
             result["error"] = exc
+
+    if show_reasoning:
+        return run_single_game(strategy, game_idx, show_reasoning=True)
 
     thread = threading.Thread(target=worker, daemon=True)
     thread.start()
@@ -92,13 +101,17 @@ def run_single_game_with_spinner(strategy, game_idx, games):
     return result["score"]
 
 
-def run_same_strategy(strategy, games):
+def run_same_strategy(strategy, games, show_reasoning=False):
     points = []
     for game_idx in range(1, games + 1):
-        points.append(run_single_game_with_spinner(strategy, game_idx, games))
-        sys.stdout.write(render_progress(strategy, game_idx, games))
-        sys.stdout.flush()
-    sys.stdout.write("\n")
+        if show_reasoning:
+            print(f"\n=== {strategy} game {game_idx}/{games} ===")
+        points.append(run_single_game_with_spinner(strategy, game_idx, games, show_reasoning=show_reasoning))
+        if not show_reasoning:
+            sys.stdout.write(render_progress(strategy, game_idx, games))
+            sys.stdout.flush()
+    if not show_reasoning:
+        sys.stdout.write("\n")
     return {
         "strategy": strategy,
         "average": statistics.mean(points),
@@ -129,7 +142,7 @@ def main():
 
     results = []
     for strategy in args.strategies:
-        results.append(run_same_strategy(strategy, args.games))
+        results.append(run_same_strategy(strategy, args.games, show_reasoning=args.show_reasoning))
 
     print("\nSummary (sorted by average score desc):")
     for row in sorted(results, key=lambda r: r["average"], reverse=True):
