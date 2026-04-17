@@ -47,7 +47,6 @@ python hanabi.py llm random --games 5
 Runtime configuration:
 - `OPENAI_API_KEY` (required to call API)
 - `PYHANABI_OPENAI_MODEL` (optional, default `gpt-5.4`)
-- `PYHANABI_OPENAI_TEMPERATURE` (optional, default `0`)
 - `PYHANABI_OPENAI_REASONING_EFFORT` (optional, default `low`)
 - `PYHANABI_LLM_LOG_PATH` (optional, default `log/llm_api_calls.jsonl`)
 
