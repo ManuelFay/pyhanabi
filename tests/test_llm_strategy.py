@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 
 from hanabi import Action, PLAY, DISCARD
 from strategies.llm_strategy import LLMStrategy
+from strategies.fast_llm_strategy import FastLLMStrategy
 
 
 class _FakeResponse:
@@ -194,3 +195,27 @@ def test_llm_strategy_writes_per_game_human_log_and_review(tmp_path):
     assert "llm_reasoning: safe play" in content
     assert "llm_action: play(card_index=0)" in content
     assert "POSTGAME_REVIEW" in content
+
+
+def test_fast_llm_strategy_uses_compact_state():
+    strategy = FastLLMStrategy(
+        "Fast",
+        0,
+        client=_FakeClient(
+            '{"selected_action_id":0,"selected_action":{"type":"play","pnr":null,"col":null,"num":null,"cnr":0,"canonical":"play(card_index=0)"},"reasoning":"x"}'
+        ),
+    )
+    state = strategy._serialize_state(
+        nr=0,
+        hands=[[], [(0, 1), (3, 2)]],
+        knowledge=[[[[1, 0, 0, 0, 0] for _ in range(5)]], [[[1, 0, 0, 0, 0] for _ in range(5)]]],
+        trash=[(1, 3)],
+        played=[(0, 1)],
+        board=[(0, 1), (1, 0), (2, 0), (3, 0), (4, 0)],
+        hints=6,
+        legal_actions=[{"action_id": 0, "type": "play", "pnr": None, "col": None, "num": None, "cnr": 0, "canonical": "play(card_index=0)"}],
+    )
+    assert "knowledge" not in state
+    assert "board" in state
+    assert "own_knowledge_summary" in state
+    assert "recent_discarded_cards" in state

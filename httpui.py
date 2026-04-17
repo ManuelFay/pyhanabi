@@ -501,6 +501,7 @@ ais = {
     "intentional": hanabi.IntentionalPlayer,
     "full": hanabi.SelfIntentionalPlayer,
     "llm": hanabi.LLMStrategy,
+    "fast-llm": hanabi.FastLLMStrategy,
 }
 
 
@@ -896,7 +897,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             
             s._write('<p>AI: ')
             
-            for i,(display,value) in enumerate([("Outer State AI", "outer"), ("Intentional AI", "intentional"), ("Full AI", "full"), ("LLM AI", "llm")]):
+            for i,(display,value) in enumerate([("Outer State AI", "outer"), ("Intentional AI", "intentional"), ("Full AI", "full"), ("LLM AI", "llm"), ("Fast LLM AI", "fast-llm")]):
                 s._write(' <a href="/selectreplay/%s">%s</a> - '%(format_filters(update_filters(filters, "ai", value)), display))
             s._write(' <a href="/selectreplay/%s">any</a></p>'%(format_filters(update_filters(filters, "ai", ""))))
             
@@ -993,6 +994,7 @@ class MyHandler(http.server.BaseHTTPRequestHandler):
             s._write('<li><a href="/new/intentional">Intentional Player</a></li>\n')
             s._write('<li><a href="/new/full">Fully Intentional Player</a></li>\n')
             s._write('<li><a href="/new/llm">LLM Player</a></li>\n')
+            s._write('<li><a href="/new/fast-llm">Fast LLM Player</a></li>\n')
             s._write('</ul><br/>')
             s._write('<p>Or select a <a href="/selectreplay/">replay file to view</a></p>')
             s._write('</body></html>')

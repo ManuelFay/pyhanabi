@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import hanabi
 
 # Keep this list to six broadly useful built-in strategies.
-DEFAULT_STRATEGIES = ["random", "inner", "outer", "intentional", "full", "timed", "sample"]
+DEFAULT_STRATEGIES = ["random", "inner", "outer", "intentional", "full", "timed", "sample", "llm", "fast-llm"]
 SPINNER_FRAMES = "|/-\\"
 
 

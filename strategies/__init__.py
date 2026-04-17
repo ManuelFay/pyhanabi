@@ -3,6 +3,7 @@
 from .full_strategy import SelfIntentionalPlayer
 from .fully_intentional_strategy import FullyIntentionalPlayer
 from .inner_strategy import InnerStatePlayer
+from .fast_llm_strategy import FastLLMStrategy
 from .llm_strategy import LLMStrategy
 from .intentional_strategy import IntentionalPlayer
 from .outer_strategy import OuterStatePlayer
@@ -22,4 +23,5 @@ STRATEGY_TYPES = {
     "full": SelfIntentionalPlayer,
     "timed": TimedPlayer,
     "llm": LLMStrategy,
+    "fast-llm": FastLLMStrategy,
 }

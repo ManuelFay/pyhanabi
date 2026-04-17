@@ -74,3 +74,6 @@ python scripts/ai_vs_ai_average.py --strategies llm --games 3 --show-reasoning
 
 With `--show-reasoning`, CLI logs now include parseable per-move state lines:
 `STATE move=<n> player=<idx> points=<score> hints=<h> mistakes=<m> board=[green:x, ...]`
+
+
+`fast-llm` is a compact-state variant of `llm` that sends a smaller, high-signal state payload (trimmed knowledge + short history) to reduce cost/latency.
