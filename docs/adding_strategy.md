@@ -68,3 +68,6 @@ To inspect reasoning in AI-vs-AI CLI runs:
 python hanabi.py llm llm --games 1 --show-reasoning
 python scripts/ai_vs_ai_average.py --strategies llm --games 3 --show-reasoning
 ```
+
+With `--show-reasoning`, CLI logs now include parseable per-move state lines:
+`STATE move=<n> player=<idx> points=<score> hints=<h> mistakes=<m> board=[green:x, ...]`

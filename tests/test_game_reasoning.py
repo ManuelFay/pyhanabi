@@ -32,3 +32,7 @@ def test_game_show_reasoning_prints_explanations():
     output = log.getvalue()
     assert "reasoning:" in output
     assert "because test" in output
+    assert "STATE move=" in output
+    assert "points=" in output
+    assert "hints=" in output
+    assert "mistakes=" in output

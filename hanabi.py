@@ -419,6 +419,7 @@ class Game(object):
         self.trash = []
         self.log = log
         self.turn = 1
+        self.move_index = 0
         self.format = format
         self.show_reasoning = show_reasoning
         self.dopostsurvey = False
@@ -443,6 +444,7 @@ class Game(object):
         self.knowledge[pnr].append(initial_knowledge())
         del self.deck[0]
     def perform(self, action):
+        self.move_index += 1
         for p in self.players:
             p.inform(action, self.current_player, self)
         if format:
@@ -501,6 +503,15 @@ class Game(object):
             del self.knowledge[self.current_player][action.cnr]
             self.draw_card()
             print(self.players[self.current_player].name, "now has", format_hand(self.hands[self.current_player]), file=self.log)
+        if self.show_reasoning:
+            board_state = ", ".join([f"{COLORNAMES[col]}:{rank}" for (col, rank) in self.board])
+            points = self.score()
+            mistakes = 3 - self.hits
+            print(
+                f"STATE move={self.move_index} player={self.current_player} points={points} "
+                f"hints={self.hints} mistakes={mistakes} board=[{board_state}]",
+                file=self.log,
+            )
     def valid_actions(self):
         valid = []
         for i in range(len(self.hands[self.current_player])):

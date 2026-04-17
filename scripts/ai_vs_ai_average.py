@@ -104,10 +104,14 @@ def run_single_game_with_spinner(strategy, game_idx, games, show_reasoning=False
 def run_same_strategy(strategy, games, show_reasoning=False):
     points = []
     for game_idx in range(1, games + 1):
+        if show_reasoning:
+            print(f"\n=== {strategy} game {game_idx}/{games} ===")
         points.append(run_single_game_with_spinner(strategy, game_idx, games, show_reasoning=show_reasoning))
-        sys.stdout.write(render_progress(strategy, game_idx, games))
-        sys.stdout.flush()
-    sys.stdout.write("\n")
+        if not show_reasoning:
+            sys.stdout.write(render_progress(strategy, game_idx, games))
+            sys.stdout.flush()
+    if not show_reasoning:
+        sys.stdout.write("\n")
     return {
         "strategy": strategy,
         "average": statistics.mean(points),
