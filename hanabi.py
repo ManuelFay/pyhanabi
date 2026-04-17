@@ -607,7 +607,7 @@ class NullStream(object):
 random.seed(123)
 
 playertypes = None
-names = ["Shangdi", "Yu Di", "Tian", "Nu Wa", "Pangu"]
+names = ["Bob", "Alice", "Charlie", "Dana", "Eve"]
         
         
 def get_playertypes():
