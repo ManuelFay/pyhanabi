@@ -134,6 +134,9 @@ python hanabi.py random random --games 5
 ### Add a strategy
 See `docs/adding_strategy.md` for the step-by-step workflow and registry changes.
 
+### Understand built-in strategy behavior
+See `docs/strategy_rationale.md` for a plain-language explanation of each strategy's decision logic and rationale.
+
 ---
 
 ## Notes on Python modernization
