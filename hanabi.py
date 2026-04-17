@@ -424,6 +424,10 @@ class Game(object):
         self.show_reasoning = show_reasoning
         self.dopostsurvey = False
         self.study = False
+        self._end_notified = False
+        for p in self.players:
+            if hasattr(p, "start_game"):
+                p.start_game(self)
         if self.format:
             print(self.deck, file=self.log)
     def make_hands(self):
@@ -553,6 +557,7 @@ class Game(object):
         print("Game done, hits left:", self.hits, file=self.log)
         points = self.score()
         print("Points:", points, file=self.log)
+        self._notify_game_end()
         return points
     def score(self):
         return sum([col_num8[1] for col_num8 in self.board])
@@ -597,6 +602,13 @@ class Game(object):
         if self.format:
             print("Score", self.score(), file=self.log)
             self.log.close()
+    def _notify_game_end(self):
+        if self._end_notified:
+            return
+        self._end_notified = True
+        for p in self.players:
+            if hasattr(p, "on_game_end"):
+                p.on_game_end(self)
         
     
 class NullStream(object):

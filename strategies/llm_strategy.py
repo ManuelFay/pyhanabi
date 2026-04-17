@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from datetime import datetime, timezone
+import uuid
 
 from .base import AbstractStrategy
 from hanabi import Action, HINT_COLOR, HINT_NUMBER, PLAY, DISCARD, COLORNAMES
@@ -19,6 +20,7 @@ class LLMStrategy(AbstractStrategy):
 
     CONTEXT_PATH = Path(__file__).resolve().parents[1] / "docs" / "llm_hanabi_context.md"
     DEFAULT_LOG_PATH = Path(__file__).resolve().parents[1] / "log" / "llm_api_calls.jsonl"
+    DEFAULT_PLAY_LOG_DIR = Path(__file__).resolve().parents[1] / "log" / "llm_play_logs"
 
     SYSTEM_PROMPT = (
         "You are an expert Hanabi partner. Read the context pack carefully and then choose "
@@ -32,12 +34,94 @@ class LLMStrategy(AbstractStrategy):
         self.model = os.getenv("PYHANABI_OPENAI_MODEL", "gpt-5.4-mini")
         self.reasoning_effort = os.getenv("PYHANABI_OPENAI_REASONING_EFFORT", "low")
         self.log_path = Path(os.getenv("PYHANABI_LLM_LOG_PATH", str(self.DEFAULT_LOG_PATH)))
+        self.play_log_dir = Path(os.getenv("PYHANABI_LLM_PLAY_LOG_DIR", str(self.DEFAULT_PLAY_LOG_DIR)))
+        self._current_game_file = None
+        self._current_game_id = None
+        self._last_hits = None
         if client is not None:
             self.client = client
         elif OpenAI and os.getenv("OPENAI_API_KEY"):
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         else:
             self.client = None
+
+    def start_game(self, game):
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        self.play_log_dir.mkdir(parents=True, exist_ok=True)
+        game_id = uuid.uuid4().hex[:8]
+        self._current_game_id = game_id
+        self._current_game_file = self.play_log_dir / f"game_{timestamp}_{self.name}_{self.pnr}_{game_id}.log"
+        self._last_hits = game.hits
+        with self._current_game_file.open("w", encoding="utf-8") as handle:
+            handle.write(f"LLM GAME LOG\n")
+            handle.write(f"player={self.name} index={self.pnr} model={self.model}\n")
+            handle.write(f"reasoning_effort={self.reasoning_effort}\n")
+
+    def _format_card(self, card):
+        col, rank = card
+        return f"{COLORNAMES[col]} {rank}"
+
+    def _format_knowledge_block(self, knowledge_row):
+        lines = []
+        for card_idx, card_knowledge in enumerate(knowledge_row):
+            poss = []
+            for col in range(len(card_knowledge)):
+                for rank_idx, count in enumerate(card_knowledge[col]):
+                    if count > 0:
+                        poss.append(f"{COLORNAMES[col]} {rank_idx + 1} (w={count})")
+            lines.append(f"  card[{card_idx}]: " + (", ".join(poss[:12]) if poss else "no possibilities"))
+        return "\n".join(lines)
+
+    def _append_play_log(self, text):
+        if not self._current_game_file:
+            return
+        with self._current_game_file.open("a", encoding="utf-8") as handle:
+            handle.write(text.rstrip() + "\n")
+
+    def _log_turn_human_readable(self, nr, hands, knowledge, board, hints, action, reasoning):
+        board_state = ", ".join([f"{COLORNAMES[col]}:{rank}" for (col, rank) in board])
+        mistakes = "unknown" if self._last_hits is None else str(3 - self._last_hits)
+        opponent_idx = 1 - nr if len(hands) == 2 else None
+        opponent_cards = "n/a"
+        opponent_knowledge = "n/a"
+        if opponent_idx is not None:
+            opponent_cards = ", ".join([self._format_card(card) for card in hands[opponent_idx]]) or "none"
+            opponent_knowledge = self._format_knowledge_block(knowledge[opponent_idx])
+        own_knowledge = self._format_knowledge_block(knowledge[nr])
+        action_label = self._canonical_action(action)
+
+        self._append_play_log(
+            f"TURN\n"
+            f"board=[{board_state}] points={sum([rank for _, rank in board])} hints={hints} mistakes={mistakes}\n"
+            f"opponent_cards: {opponent_cards}\n"
+            f"opponent_knowledge:\n{opponent_knowledge}\n"
+            f"llm_own_knowledge:\n{own_knowledge}\n"
+            f"llm_reasoning: {reasoning}\n"
+            f"llm_action: {action_label}\n"
+        )
+
+    def _append_end_of_game_review(self, game):
+        if not self._current_game_file:
+            return
+        self._append_play_log(
+            f"GAME_END points={game.score()} mistakes={3-game.hits} hints={game.hints} board={game.board}"
+        )
+        if not self.client or not os.getenv("OPENAI_API_KEY"):
+            self._append_play_log("POSTGAME_REVIEW unavailable: OpenAI client or OPENAI_API_KEY missing.")
+            return
+        log_text = self._current_game_file.read_text(encoding="utf-8")
+        review_prompt = (
+            "You are analyzing a Hanabi LLM play log. Identify suboptimal moves and strategic patterns. "
+            "Provide a concise report with: (1) key mistakes, (2) better alternatives, (3) strategy-level fixes."
+            "\n\nLOG:\n" + log_text
+        )
+        response = self.client.responses.create(
+            model="gpt-5.4",
+            reasoning={"effort": "medium"},
+            input=[{"role": "user", "content": review_prompt}],
+        )
+        self._append_play_log("POSTGAME_REVIEW")
+        self._append_play_log(response.output_text)
 
     def _action_type_name(self, action_type):
         mapping = {
@@ -284,7 +368,20 @@ class LLMStrategy(AbstractStrategy):
 
         action, reasoning = self._llm_pick_action(state_payload, legal_actions)
         self.explanation = [f"LLM model={self.model}", reasoning]
+        self._log_turn_human_readable(
+            nr=nr,
+            hands=hands,
+            knowledge=knowledge,
+            board=board,
+            hints=hints,
+            action=action,
+            reasoning=reasoning,
+        )
         return action
 
     def inform(self, action, player, game):
-        pass
+        if game is not None:
+            self._last_hits = game.hits
+
+    def on_game_end(self, game):
+        self._append_end_of_game_review(game)

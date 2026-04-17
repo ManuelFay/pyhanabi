@@ -21,10 +21,15 @@ class _FakeResponse:
 
 class _FakeResponsesApi:
     def __init__(self, text):
-        self._text = text
+        self._texts = [text]
+
+    def queue(self, text):
+        self._texts.append(text)
 
     def create(self, **kwargs):
-        return _FakeResponse(self._text)
+        if not self._texts:
+            raise RuntimeError("No queued fake responses")
+        return _FakeResponse(self._texts.pop(0))
 
 
 class _FakeClient:
@@ -144,3 +149,48 @@ def test_llm_strategy_logs_request_and_response(tmp_path):
     assert entry["request"]["reasoning"]["effort"] == "low"
     assert "selected_action_id" in entry["response_text"]
     assert entry["error"] is None
+
+
+def test_llm_strategy_writes_per_game_human_log_and_review(tmp_path):
+    action_payload = (
+        '{"selected_action_id":0,"selected_action":{"type":"play","pnr":null,"col":null,'
+        '"num":null,"cnr":0,"canonical":"play(card_index=0)"},"reasoning":"safe play"}'
+    )
+    strategy = _make_strategy(action_payload)
+    strategy.play_log_dir = tmp_path
+
+    context_file = tmp_path / "llm_hanabi_context.md"
+    context_file.write_text("# TEST CONTEXT", encoding="utf-8")
+    strategy.CONTEXT_PATH = context_file
+
+    class _DummyGame:
+        hits = 3
+        hints = 8
+        board = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]
+
+        def score(self):
+            return 0
+
+    strategy.start_game(_DummyGame())
+
+    valid_actions = [Action(PLAY, cnr=0)]
+    strategy.get_action(
+        nr=0,
+        hands=[[], [(0, 1)]],
+        knowledge=[[[[1, 0, 0, 0, 0] for _ in range(5)]], [[[1, 0, 0, 0, 0] for _ in range(5)]]],
+        trash=[],
+        played=[],
+        board=[(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)],
+        valid_actions=valid_actions,
+        hints=8,
+    )
+    strategy.client.responses.queue("Overall, main issue was over-hinting in early game.")
+    strategy.on_game_end(_DummyGame())
+
+    assert strategy._current_game_file.exists()
+    content = strategy._current_game_file.read_text(encoding="utf-8")
+    assert "opponent_cards:" in content
+    assert "llm_own_knowledge:" in content
+    assert "llm_reasoning: safe play" in content
+    assert "llm_action: play(card_index=0)" in content
+    assert "POSTGAME_REVIEW" in content

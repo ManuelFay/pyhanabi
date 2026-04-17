@@ -49,6 +49,7 @@ Runtime configuration:
 - `PYHANABI_OPENAI_MODEL` (optional, default `gpt-5.4-mini`)
 - `PYHANABI_OPENAI_REASONING_EFFORT` (optional, default `low`)
 - `PYHANABI_LLM_LOG_PATH` (optional, default `log/llm_api_calls.jsonl`)
+- `PYHANABI_LLM_PLAY_LOG_DIR` (optional, default `log/llm_play_logs/`)
 
 Where to put your API key:
 - In your shell session before running: `export OPENAI_API_KEY="sk-..."`
@@ -56,6 +57,8 @@ Where to put your API key:
 
 The implementation enforces legality by requiring the model to output a `selected_action_id` that indexes directly into the supplied `legal_actions` list, then validating every returned action field before constructing the engine `Action` object. If the model does not return a legal action, the strategy now raises a clear error message instead of silently falling back.
 Each request/response exchange is logged to JSONL so you can inspect exact payloads and model outputs.
+Additionally, each LLM player writes a per-game human-readable play log under `log/llm_play_logs/` that includes board state, points, mistakes, hints, visible opponent cards, opponent knowledge, own knowledge, reasoning text, and chosen action.
+At game end, the strategy requests a `gpt-5.4` medium-reasoning postgame review and appends the analysis to the same file.
 
 
 Prompt source of truth:
