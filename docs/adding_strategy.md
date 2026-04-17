@@ -46,16 +46,25 @@ python hanabi.py llm random --games 5
 
 Runtime configuration:
 - `OPENAI_API_KEY` (required to call API)
-- `PYHANABI_OPENAI_MODEL` (optional, default `gpt-4.1-mini`)
+- `PYHANABI_OPENAI_MODEL` (optional, default `o4-mini`, a reasoning model)
 - `PYHANABI_OPENAI_TEMPERATURE` (optional, default `0`)
+- `PYHANABI_LLM_LOG_PATH` (optional, default `log/llm_api_calls.jsonl`)
 
 Where to put your API key:
 - In your shell session before running: `export OPENAI_API_KEY="sk-..."`
 - Or in your shell profile (e.g. `~/.bashrc`) so it is available in new terminals.
 
 The implementation enforces legality by requiring the model to output a `selected_action_id` that indexes directly into the supplied `legal_actions` list, then validating every returned action field before constructing the engine `Action` object. If the model does not return a legal action, the strategy now raises a clear error message instead of silently falling back.
+Each request/response exchange is logged to JSONL so you can inspect exact payloads and model outputs.
 
 
 Prompt source of truth:
 - `docs/llm_hanabi_context.md` is injected into every LLM turn as the context pack.
 - Future prompt optimizations should usually start by updating this context file and tests.
+
+To inspect reasoning in AI-vs-AI CLI runs:
+
+```bash
+python hanabi.py llm llm --games 1 --show-reasoning
+python scripts/ai_vs_ai_average.py --strategies llm --games 3 --show-reasoning
+```

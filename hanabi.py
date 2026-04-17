@@ -398,7 +398,7 @@ def format_hand(hand):
         
 
 class Game(object):
-    def __init__(self, players, log=sys.stdout, format=0):
+    def __init__(self, players, log=sys.stdout, format=0, show_reasoning=False):
         self.players = players
         self.hits = 3
         self.hints = 8
@@ -414,6 +414,7 @@ class Game(object):
         self.log = log
         self.turn = 1
         self.format = format
+        self.show_reasoning = show_reasoning
         self.dopostsurvey = False
         self.study = False
         if self.format:
@@ -520,6 +521,15 @@ class Game(object):
                 else:
                     hands.append(h)
             action = self.players[self.current_player].get_action(self.current_player, hands, self.knowledge, self.trash, self.played, self.board, self.valid_actions(), self.hints)
+            if self.show_reasoning:
+                explanation = self.players[self.current_player].get_explanation()
+                if explanation:
+                    print(
+                        self.players[self.current_player].name,
+                        "reasoning:",
+                        " | ".join(map(str, explanation)),
+                        file=self.log,
+                    )
             self.perform(action)
             self.current_player += 1
             self.current_player %= len(self.players)
@@ -540,6 +550,15 @@ class Game(object):
                 else:
                     hands.append(h)
             action = self.players[self.current_player].get_action(self.current_player, hands, self.knowledge, self.trash, self.played, self.board, self.valid_actions(), self.hints)
+            if self.show_reasoning:
+                explanation = self.players[self.current_player].get_explanation()
+                if explanation:
+                    print(
+                        self.players[self.current_player].name,
+                        "reasoning:",
+                        " | ".join(map(str, explanation)),
+                        file=self.log,
+                    )
             self.perform(action)
             self.current_player += 1
             self.current_player %= len(self.players)
@@ -636,6 +655,10 @@ def main(args):
         
     games = 200
     player_args = list(args)
+    show_reasoning = False
+    if "--show-reasoning" in player_args:
+        show_reasoning = True
+        player_args.remove("--show-reasoning")
     if "--games" in player_args:
         idx = player_args.index("--games")
         try:
@@ -657,7 +680,7 @@ def main(args):
         if (i+1)%100 == 0:
             print("Starting game", i+1)
         random.seed(i+1)
-        g = Game(players, out)
+        g = Game(players, out, show_reasoning=show_reasoning)
         try:
             pts.append(g.run())
             if (i+1)%100 == 0:

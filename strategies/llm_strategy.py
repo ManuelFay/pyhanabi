@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+from datetime import datetime, timezone
 
 from .base import AbstractStrategy
 from hanabi import Action, HINT_COLOR, HINT_NUMBER, PLAY, DISCARD, COLORNAMES
@@ -17,6 +18,7 @@ class LLMStrategy(AbstractStrategy):
     """Use an LLM to choose among legal actions with strict validation."""
 
     CONTEXT_PATH = Path(__file__).resolve().parents[1] / "docs" / "llm_hanabi_context.md"
+    DEFAULT_LOG_PATH = Path(__file__).resolve().parents[1] / "log" / "llm_api_calls.jsonl"
 
     SYSTEM_PROMPT = (
         "You are an expert Hanabi partner. Read the context pack carefully and then choose "
@@ -27,8 +29,9 @@ class LLMStrategy(AbstractStrategy):
         self.name = name
         self.pnr = pnr
         self.explanation = []
-        self.model = os.getenv("PYHANABI_OPENAI_MODEL", "gpt-4.1-mini")
+        self.model = os.getenv("PYHANABI_OPENAI_MODEL", "o4-mini")
         self.temperature = float(os.getenv("PYHANABI_OPENAI_TEMPERATURE", "0"))
+        self.log_path = Path(os.getenv("PYHANABI_LLM_LOG_PATH", str(self.DEFAULT_LOG_PATH)))
         if client is not None:
             self.client = client
         elif OpenAI and os.getenv("OPENAI_API_KEY"):
@@ -104,6 +107,22 @@ class LLMStrategy(AbstractStrategy):
         }
         return json.dumps(payload, separators=(",", ":"))
 
+    def _log_exchange(self, request_payload, response_text, parsed_response=None, error_message=None):
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+            "player_name": self.name,
+            "player_index": self.pnr,
+            "model": self.model,
+            "temperature": self.temperature,
+            "request": request_payload,
+            "response_text": response_text,
+            "parsed_response": parsed_response,
+            "error": error_message,
+        }
+        with self.log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry) + "\n")
+
     def _extract_json(self, content):
         raw = content.strip()
         if raw.startswith("```"):
@@ -138,40 +157,62 @@ class LLMStrategy(AbstractStrategy):
         if not os.getenv("OPENAI_API_KEY"):
             raise RuntimeError("OPENAI_API_KEY is not set.")
 
-        response = self.client.responses.create(
-            model=self.model,
-            temperature=self.temperature,
-            input=[
+        request_payload = {
+            "model": self.model,
+            "temperature": self.temperature,
+            "input": [
                 {"role": "system", "content": self.SYSTEM_PROMPT},
                 {"role": "user", "content": self._build_user_prompt(state_payload)},
             ],
+        }
+        response = self.client.responses.create(
+            model=self.model,
+            temperature=self.temperature,
+            input=request_payload["input"],
         )
-        parsed = self._extract_json(response.output_text)
+        response_text = response.output_text
+        parsed = None
+        try:
+            parsed = self._extract_json(response_text)
+        except Exception as exc:
+            self._log_exchange(request_payload, response_text, parsed_response=None, error_message=str(exc))
+            raise
 
         selected_id = parsed.get("selected_action_id")
         if not isinstance(selected_id, int):
-            raise ValueError("LLM protocol error: selected_action_id must be an integer legal action id.")
+            msg = "LLM protocol error: selected_action_id must be an integer legal action id."
+            self._log_exchange(request_payload, response_text, parsed_response=parsed, error_message=msg)
+            raise ValueError(msg)
         if selected_id < 0 or selected_id >= len(legal_actions):
-            raise ValueError(f"LLM protocol error: selected_action_id={selected_id} is not a legal action.")
+            msg = f"LLM protocol error: selected_action_id={selected_id} is not a legal action."
+            self._log_exchange(request_payload, response_text, parsed_response=parsed, error_message=msg)
+            raise ValueError(msg)
 
         candidate = legal_actions[selected_id]
         selected_action = parsed.get("selected_action")
         if not isinstance(selected_action, dict):
-            raise ValueError("LLM protocol error: selected_action must be an object.")
+            msg = "LLM protocol error: selected_action must be an object."
+            self._log_exchange(request_payload, response_text, parsed_response=parsed, error_message=msg)
+            raise ValueError(msg)
 
         required_keys = ["type", "pnr", "col", "num", "cnr", "canonical"]
         for key in required_keys:
             if key not in selected_action:
-                raise ValueError(f"LLM protocol error: selected_action missing key: {key}")
+                msg = f"LLM protocol error: selected_action missing key: {key}"
+                self._log_exchange(request_payload, response_text, parsed_response=parsed, error_message=msg)
+                raise ValueError(msg)
 
         for key in required_keys:
             if selected_action[key] != candidate[key]:
-                raise ValueError(
+                msg = (
                     "LLM protocol error: selected_action does not match legal action "
                     f"for key '{key}' (expected {candidate[key]!r}, got {selected_action[key]!r})."
                 )
+                self._log_exchange(request_payload, response_text, parsed_response=parsed, error_message=msg)
+                raise ValueError(msg)
 
         reason = parsed.get("reasoning", "")
+        self._log_exchange(request_payload, response_text, parsed_response=parsed, error_message=None)
         return self._to_action(candidate), reason
 
     def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
