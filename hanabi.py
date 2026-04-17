@@ -174,6 +174,7 @@ def generate_hands_simple(knowledge, used={}):
 
                     
 a = 1   
+CANDISCARD = 128
 
 
 def format_intention(i):
