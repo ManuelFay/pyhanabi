@@ -29,10 +29,10 @@ Interpretation:
 ## 2) Strategy priors (what `prior` assumes)
 
 `prior` uses deterministic priors in this order:
-1. **Play-first prior:** if a known playable card exists in own hand, play it immediately.
-2. **Tempo-hint prior:** if no play exists, hint teammate about currently playable cards (favor specific hints that touch fewer cards).
-3. **Safety-discard prior:** if still blocked, discard cheapest card by a risk model (dead cards first, avoid critical cards).
-4. **Knowledge fallback prior:** if snapshot data is unavailable, revert to safe knowledge-based play/discard heuristics.
+1. **Resolve fresh hint first:** after receiving a hint, play the newest touched card that is certainly playable; otherwise play the newest touched card that is potentially playable.
+2. **Guaranteed self-play:** if a known playable card exists in own hand, play it immediately (prefers higher implied rank).
+3. **Tempo-hint prior:** if no play exists, hint teammate about currently playable cards (favor narrow/singleton hints that keep newest-touch intent clear and avoid ambiguous risky touches).
+4. **Safety-discard prior:** if still blocked, take guaranteed-safe discard when possible (and hints are not full), else discard cheapest card by a board+trash risk model.
 
 This is intentionally fast (small bounded loops over players/cards) and favors stable throughput over expensive search.
 
