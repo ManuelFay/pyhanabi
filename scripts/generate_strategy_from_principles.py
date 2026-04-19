@@ -12,6 +12,7 @@ from openai import OpenAI
 
 DEFAULT_MODEL = "gpt-5.4-mini"
 ROOT = Path(__file__).resolve().parent.parent
+REPO_URL = "https://github.com/ManuelFay/pyhanabi"
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,6 +70,27 @@ def _load_generation_context() -> str:
             if line.strip().startswith("return valid"):
                 break
 
+    make_player_lines = []
+    capture = False
+    for line in hanabi_runtime.splitlines():
+        if line.strip().startswith("def make_player("):
+            capture = True
+        if capture:
+            make_player_lines.append(line)
+            if line.strip().startswith("return None"):
+                break
+
+    hidden_hand_lines = []
+    capture = False
+    for line in hanabi_runtime.splitlines():
+        if line.strip().startswith("def run(self, turns=-1):"):
+            capture = True
+        if capture and ("hands.append([])" in line or "hands.append(h)" in line):
+            hidden_hand_lines.append(line)
+        if capture and line.strip().startswith("action = self.players[self.current_player].get_action("):
+            hidden_hand_lines.append(line)
+            break
+
     return (
         "Strategy base contract (excerpt):\n"
         + "\n".join(contract_excerpt)
@@ -76,6 +98,10 @@ def _load_generation_context() -> str:
         + "\n".join(action_lines)
         + "\n\nGame.valid_actions implementation (excerpt):\n"
         + "\n".join(valid_actions_lines)
+        + "\n\nhanabi.make_player constructor call contract (excerpt):\n"
+        + "\n".join(make_player_lines)
+        + "\n\nCurrent-player hand visibility in Game.run (excerpt):\n"
+        + "\n".join(hidden_hand_lines)
     )
 
 
@@ -89,9 +115,24 @@ Constraints:
 - Output valid Python code only.
 - Implement class `{class_name}` inheriting from `AbstractStrategy`.
 - The class must expose: `__init__`, `get_action`, and optional `inform`.
+- REQUIRED constructor signature: `def __init__(self, name, pnr):`
 - Imports allowed: `random`, `from .base import AbstractStrategy`, and symbols from `hanabi`.
 - Ensure every returned action is legal from `valid_actions` or constructed from observed legal semantics.
+- In `get_action`, do not inspect own true cards via `hands[nr]`; the current player hand may be hidden/empty by the runtime.
 - Include module docstring with source principles path: `{principles_path.as_posix()}`.
+- Start from this exact class skeleton and fill policy logic:
+  class {class_name}(AbstractStrategy):
+      SOURCE_DOC = "{principles_path.as_posix()}"
+      def __init__(self, name, pnr):
+          super().__init__(name, pnr)
+      def get_action(self, nr, hands, knowledge, trash, played, board, valid_actions, hints):
+          ...
+      def inform(self, action, player, game):
+          ...
+
+If needed, you may use web search to inspect repository context:
+- Repo URL: {REPO_URL}
+- Favor this repo and the provided runtime excerpts over generic Hanabi examples.
 
 Core runtime context (authoritative excerpts):
 ---
@@ -123,6 +164,7 @@ def generate_strategy_code(
     response = client.responses.create(
         model=model,
         reasoning={"effort": "medium"},
+        tools=[{"type": "web_search"}],
         input=[
             {"role": "system", "content": "Return only Python code."},
             {"role": "user", "content": prompt},
