@@ -13,6 +13,7 @@ from .sample_strategy import SamplingRecognitionPlayer
 from .self_strategy import SelfRecognitionPlayer
 from .timed_strategy import TimedPlayer
 from .prior_strategy import PrioritizedIntentionalPlayer
+from .sensitivity_strategy import SensitivityStrategy
 
 
 STRATEGY_TYPES = {
@@ -28,4 +29,5 @@ STRATEGY_TYPES = {
     "fast-llm": FastLLMStrategy,
     "feedback-llm": FeedbackLLMStrategy,
     "prior": PrioritizedIntentionalPlayer,
+    "sensitivity": SensitivityStrategy,
 }
