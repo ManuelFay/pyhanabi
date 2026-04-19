@@ -1,0 +1,16 @@
+[
+  {
+    "id": "human-prior",
+    "principles": "human_strategies/prior_strategy_principles.md",
+    "strategy_alias": "human-prior",
+    "strategy_module": "strategies/human_prior_principles_strategy.py",
+    "strategy_class": "HumanPriorPrinciplesStrategy"
+  },
+  {
+    "id": "human-single-hint",
+    "principles": "human_strategies/single_immediate_hint_strategy_principles.md",
+    "strategy_alias": "human-single-hint",
+    "strategy_module": "strategies/human_single_hint_strategy.py",
+    "strategy_class": "HumanSingleImmediateHintStrategy"
+  }
+]
