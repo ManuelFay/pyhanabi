@@ -12,5 +12,12 @@
     "strategy_alias": "human-single-hint",
     "strategy_module": "strategies/human_single_hint_strategy.py",
     "strategy_class": "HumanSingleImmediateHintStrategy"
+  },
+  {
+    "id": "human-dumb",
+    "principles": "human_strategies/dumb_principles.md",
+    "strategy_alias": "human-dumb",
+    "strategy_module": "strategies/human_dumb_strategy.py",
+    "strategy_class": "HumanDumbStrategy"
   }
 ]
