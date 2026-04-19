@@ -180,21 +180,21 @@ Most strategies balance three core goals:
 
 ## `prior` (`PrioritizedIntentionalPlayer`)
 
-**Rationale:** Fast deterministic priors: immediate value now, risk control otherwise.
+**Rationale:** Fast, rule-compliant deterministic priors with explicit hint-following conventions.
 
 **What it considers:**
-- full turn snapshot from `inform(...)` (current true hand state),
-- direct card playability on current board,
-- discard criticality (protect last-copy cards),
-- hint specificity (prefer hints that isolate a playable target).
+- own per-card possibility sets from public knowledge,
+- whether a just-received hint touched cards that are certainly/potentially playable,
+- partner playable cards plus hint quality (narrowness, newest-touched alignment, ambiguity risk),
+- discard criticality from board + trash counts (protect last copies, especially 5s).
 
 **Decision style:**
-1. **Play-first prior:** play any guaranteed playable own card, preferring the highest rank.
-2. **Tempo-hint prior:** if no play, hint teammate about currently playable cards; prefer narrower hints that touch fewer cards.
-3. **Safety-discard prior:** if still no play/hint, discard the lowest-cost card (dead cards first, avoid critical cards).
-4. **Robust fallback:** if no snapshot state is available, fall back to knowledge-based safe play/discard logic.
+1. **Fresh-hint resolution:** if a received hint touched cards, play the newest touched card that is certainly playable; otherwise the newest touched card that is potentially playable.
+2. **Guaranteed self-play:** if any own card is certainly playable, play one (prefers highest implied rank).
+3. **Tempo-hint prior:** if no play exists, hint partner about currently playable cards using scoring that favors narrow, singleton, newest-aligned, low-ambiguity hints.
+4. **Safe/low-risk discard:** if still blocked, prefer guaranteed-safe discard (when hints are not full), else use risk-ranked discard fallback.
 
-**Tradeoff:** Extremely fast and strong in mirror mode; weaker in mixed pairings where partners follow different hint conventions.
+**Tradeoff:** Extremely fast and deterministic, with strong mirror coordination when partner follows newest-touched hint conventions; less robust with mismatched partner conventions.
 
 ---
 
