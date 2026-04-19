@@ -11,12 +11,16 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from scripts.generate_strategy_from_principles import generate_strategy_code
 
 
-ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_PATH = ROOT / "human_strategies/manifest.json"
 REGISTRY_PATH = ROOT / "strategies/__init__.py"
 
@@ -51,8 +55,32 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+
+
+def _ref_exists(ref: str) -> bool:
+    proc = subprocess.run(["git", "rev-parse", "--verify", f"{ref}^{{commit}}"], cwd=str(ROOT), capture_output=True, text=True)
+    return proc.returncode == 0
+
+
+def resolve_base_ref(base_ref: str) -> str:
+    if _ref_exists(base_ref):
+        return base_ref
+
+    fallbacks = ["origin/main", "origin/master", "main", "master"]
+    for candidate in fallbacks:
+        if candidate != base_ref and _ref_exists(candidate):
+            print(f"Base ref '{base_ref}' not found; falling back to '{candidate}'")
+            return candidate
+
+    print(
+        f"Base ref '{base_ref}' not found and no fallback branch available; "
+        "using HEAD so the diff is empty."
+    )
+    return "HEAD"
+
 def changed_principles_files(base_ref: str) -> list[Path]:
-    out = run(["git", "diff", "--name-only", f"{base_ref}...HEAD", "--", "human_strategies/*.md"])
+    resolved_base_ref = resolve_base_ref(base_ref)
+    out = run(["git", "diff", "--name-only", f"{resolved_base_ref}...HEAD", "--", "human_strategies/*.md"])
     files: list[Path] = []
     for rel in out.splitlines():
         rel = rel.strip()
