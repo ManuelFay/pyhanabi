@@ -1,6 +1,6 @@
 # Human strategy self-play leaderboard
 
-Generated: `2026-04-19 13:39:26Z` (UTC)
+Generated: `2026-04-19 15:24:04Z` (UTC)
 Manifest: `human_strategies/manifest.json`
 Games per strategy: `200`
 
