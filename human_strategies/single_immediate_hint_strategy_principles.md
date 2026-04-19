@@ -10,6 +10,6 @@ This strategy intentionally uses a minimal policy:
 2. Otherwise, if hint tokens are available, check partner cards that are immediately playable.
 3. Give a hint only if it touches exactly one card in partner hand.
 4. If multiple single-card immediate-play hints exist, use the first one found.
-5. Otherwise discard the oldest own card (lowest hand index).
+5. Otherwise discard the most recent own card (highest hand index).
 
 No additional conventions or recursive reasoning are used.
