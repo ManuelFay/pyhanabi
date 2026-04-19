@@ -14,6 +14,8 @@ from .self_strategy import SelfRecognitionPlayer
 from .timed_strategy import TimedPlayer
 from .prior_strategy import PrioritizedIntentionalPlayer
 from .sensitivity_strategy import SensitivityStrategy
+from .human_prior_principles_strategy import HumanPriorPrinciplesStrategy
+from .human_single_hint_strategy import HumanSingleImmediateHintStrategy
 
 
 STRATEGY_TYPES = {
@@ -30,4 +32,6 @@ STRATEGY_TYPES = {
     "feedback-llm": FeedbackLLMStrategy,
     "prior": PrioritizedIntentionalPlayer,
     "sensitivity": SensitivityStrategy,
+    "human-prior": HumanPriorPrinciplesStrategy,
+    "human-single-hint": HumanSingleImmediateHintStrategy,
 }
