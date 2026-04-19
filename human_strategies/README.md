@@ -18,3 +18,12 @@ The evaluation leaderboard reports:
 Current examples:
 - `human-prior` (prior-style principles),
 - `human-single-hint` (single-card immediate-play hints, else oldest discard).
+
+## Pull-request CI automation
+
+For PRs that change `human_strategies/*_principles.md`, GitHub Actions will:
+- generate strategy code from each new principles markdown using `OPENAI_API_KEY`,
+- register new strategy mappings in `human_strategies/manifest.json` and `strategies/__init__.py`,
+- run `scripts/human_strategy_leaderboard.py --games 200`,
+- commit generated artifacts back to the PR branch.
+

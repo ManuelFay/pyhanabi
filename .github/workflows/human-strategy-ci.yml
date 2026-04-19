@@ -1,0 +1,57 @@
+name: Human Strategy CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'human_strategies/*.md'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-and-score:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify OpenAI secret exists
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "Missing required repository secret OPENAI_API_KEY"
+            exit 1
+          fi
+
+      - name: Generate strategy code and leaderboard
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/ci_process_human_strategy_pr.py --base-ref "origin/${{ github.base_ref }}" --games 200
+
+      - name: Commit generated strategy files and scores
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add human_strategies/manifest.json strategies/ docs/human_strategy_leaderboard.md
+            git commit -m "ci: generate strategy code and update leaderboard"
+            git push
+          else
+            echo "No generated changes to commit"
+          fi
